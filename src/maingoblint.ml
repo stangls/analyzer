@@ -8,6 +8,8 @@ open Json
 open Goblintutil
 open Questions
 
+module IF = Extern.DummyInvariantsFile
+
 let writeconf = ref false
 let writeconffile = ref ""
 
@@ -249,8 +251,14 @@ let do_analyze merged_AST =
     (* if we only want to print the output created by CIL: *)
     Cilfacade.print merged_AST
   else begin
-    (* we first find the functions to analyze: *)
     if get_bool "dbg.verbose" then print_endline "And now...  the Goblin!";
+    (* load external information *)
+    let external_information =
+      match IF.from_file (get_string "ext_fname") with
+        | Some invariants -> Extern.Invariants.to_cil_expr invariants merged_AST
+        | None -> []
+    in
+    (* we first find the functions to analyze: *)
     let (stf,exf,otf as funs) = Cilfacade.getFuns merged_AST in
       if stf@exf@otf = [] then failwith "No suitable function to start from.";
       if get_bool "dbg.verbose" then ignore (Pretty.printf "Startfuns: %a\nExitfuns: %a\nOtherfuns: %a\n"
