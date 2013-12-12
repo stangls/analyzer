@@ -104,11 +104,11 @@ struct
                     let _ = match value with
                       | Interval (min,max) ->
                           exprs <- ( Formatcil.cExp
-                            "%v:x >= %d:min"(*"%v:x >= %f:MIN %b:AND %v:x <= %f:MAX"*)
+                            "( %v:var >= %d:min ) %b:and ( %v:var <= %d:max )"
                             [
-                              ("x",Fv cil_var);
+                              ("var",Fv cil_var);
                               ("min",Fd(min)); (* todo: check if var type matches cil_var.vtype *)
-                              ("and",Fb BAnd);
+                              ("and",Fb LAnd);
                               ("max",Fd(max)); (* todo: check if var type matches cil_var.vtype *)
                             ]
                           ) :: exprs
