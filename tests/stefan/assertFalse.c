@@ -3,7 +3,8 @@
 #include<assert.h>
 
 void* fun(void* args){
-  assert(0);
+  int x = 0;
+  assert(x);
   return NULL;
 }
 
