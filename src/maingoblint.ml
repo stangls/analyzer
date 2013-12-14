@@ -8,8 +8,6 @@ open Json
 open Goblintutil
 open Questions
 
-module IF = Extern.DummyInvariantsFile
-
 let writeconf = ref false
 let writeconffile = ref ""
 
@@ -241,6 +239,7 @@ let merge_preprocessed (cpp_file_names, dirName) =
   Cilfacade.ugglyImperativeHack := merged_AST;
   merged_AST
 
+(* load external invariants *)
 (** Perform the analysis over the merged AST.  *)
 let do_analyze merged_AST =
   let module L = Printable.Liszt (Basetype.CilFundec) in  
@@ -252,12 +251,6 @@ let do_analyze merged_AST =
     Cilfacade.print merged_AST
   else begin
     if get_bool "dbg.verbose" then print_endline "And now...  the Goblin!";
-    (* load external information *)
-    let external_information =
-      match IF.from_file (get_string "ext_fname") with
-        | Some invariants -> Extern.Invariants.to_cil_invariant invariants merged_AST
-        | None -> []
-    in
     (* we first find the functions to analyze: *)
     let (stf,exf,otf as funs) = Cilfacade.getFuns merged_AST in
       if stf@exf@otf = [] then failwith "No suitable function to start from.";
@@ -281,7 +274,12 @@ let main =
     parse_arguments ();
     handle_flags ();
     if ((String.length (get_string "questions.file")) > 0) then question_load_db (get_string "questions.file") else ();
-    preprocess_files () |> merge_preprocessed |> do_analyze;
+    let merged_AST = preprocess_files () |> merge_preprocessed
+    in begin
+      if get_bool "dbg.verbose" then print_endline "Loading external invariants.";
+      Extern.load_cil_invariants merged_AST !cFileNames;
+      do_analyze merged_AST;
+    end;
     if ((String.length (get_string "questions.file")) > 0) then question_save_db (get_string "questions.file") else ();
     Report.do_stats !cFileNames
   with BailFromMain -> () 
