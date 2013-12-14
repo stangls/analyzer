@@ -255,7 +255,7 @@ let do_analyze merged_AST =
     (* load external information *)
     let external_information =
       match IF.from_file (get_string "ext_fname") with
-        | Some invariants -> Extern.Invariants.to_cil_expr invariants merged_AST
+        | Some invariants -> Extern.Invariants.to_cil_invariant invariants merged_AST
         | None -> []
     in
     (* we first find the functions to analyze: *)
