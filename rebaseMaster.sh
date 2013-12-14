@@ -11,11 +11,20 @@ if git checkout master && git pull ; then
   echo "==== master update successfull"
   git mergetool && git commit -uno
 
-  if git checkout $branch && git rebase master; then
-    git mergetool && git commit -uno
-    echo "==== rebase successfull"
+  if git checkout $branch then
+    git rebase master; done=$?
+    while [ "$done" != "0" ]; do
+      if git mergetool; then
+        git rebase --continue; done=$?
+      else
+        error="$branch rebase"
+        echo "==== rebase aborted due to unsuccessful merge"
+        done=0
+      fi
+    done
+    [ -n "$error" ] || echo "==== rebase successfull"
   else
-    error="$branch rebase"
+    error="$branch checkout"
   fi
 
 else
