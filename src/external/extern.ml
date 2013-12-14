@@ -3,6 +3,9 @@
 open Cil
 open Liveness
 
+let print_location loc =
+  Printf.printf "Location: line %d , byte %d, file %s\n" loc.line loc.byte loc.file
+
 type variable = {
   name:string;
   (*ctype:string;*)
@@ -147,7 +150,7 @@ struct
                               ("and",Fb LAnd);
                               ("max",Fd(max)); (* todo: check if var type matches cil_var.vtype *)
                             ]
-                          ) :: (get_exprs var_infos)
+                          ) :: (get_exprs vis)
                       | Pointer (bases,min,max) ->
                           let rec exprs_for_bases bases agg : Cil.exp list = match bases with
                             | base::bs -> (
@@ -180,8 +183,8 @@ struct
                               )
                             | [] -> agg
                           in match ( merge_exprs (exprs_for_bases bases []) (Fb LOr) ) with
-                            | Some x -> x :: (get_exprs var_infos)
-                            | None -> get_exprs var_infos
+                            | Some x -> x :: (get_exprs vis)
+                            | None -> get_exprs vis
                       | _ -> Printf.printf "Unsupported external type"; []
                     )
                   | None -> []
@@ -193,7 +196,7 @@ struct
         end
         method vfunc func = let loc=func.svar.vdecl in begin
           (* todo : function entry points f.svar.vname *)
-          Printf.printf "Location: line %d , byte %d, file %s\n" loc.line loc.byte loc.file;
+          print_location loc;
           prev_line <- loc.line;
           computeLiveness func;
           DoChildren
@@ -211,10 +214,10 @@ struct
                 | TryFinally(_,_,loc)
                 | TryExcept(_,_,_,loc) ->
                   let cur_line=loc.line in begin
-                      Printf.printf "Location: line %d , byte %d, file %s\n" loc.line loc.byte loc.file;
-                      this#matched (filter_pos invs loc.file prev_line max_int cur_line max_int) loc liveset; (* todo: columns *)
-                      prev_line <- cur_line;
-                      DoChildren
+                    print_location loc;
+                    this#matched (filter_pos invs loc.file prev_line max_int cur_line max_int) loc liveset; (* todo: columns *)
+                    prev_line <- cur_line;
+                    DoChildren
                   end
                 | Instr instructions -> 
                   let one_instr instr = match instr with
@@ -222,7 +225,7 @@ struct
                     | Call(_,_,_,loc)
                     | Asm(_,_,_,_,_,loc)
                       ->  let cur_line=loc.line in begin
-                              Printf.printf "Location: line %d , byte %d, file %s\n" loc.line loc.byte loc.file;
+                              print_location loc;
                               this#matched (filter_pos invs loc.file prev_line max_int cur_line max_int) loc liveset; (* todo: columns *)
                               prev_line <- cur_line;
                           end
