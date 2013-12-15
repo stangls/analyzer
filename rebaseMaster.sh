@@ -11,7 +11,7 @@ if git checkout master && git pull ; then
   echo "==== master update successfull"
   git mergetool && git commit -uno
 
-  if git checkout $branch then
+  if git checkout $branch; then
     git rebase master; done=$?
     while [ "$done" != "0" ]; do
       if git mergetool; then
