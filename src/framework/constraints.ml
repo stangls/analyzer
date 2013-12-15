@@ -253,6 +253,30 @@ struct
       | Skip           -> fun _ _ getl _ _ _ -> getl (u,c)
       | SelfLoop       -> tf_loop 
     end (v,c) u
+
+  (* inject assertions for invariants by substituting state of variable (u,c) with modified get-local-function *)
+  let tf (v,c) (e,u) getl sidel getg sideg =
+    (* determine expression of assertion-function. *)
+    (* todo: here? why here? *)
+    match Extern.assert_fun () with
+      | Some GVarDecl(assert_var_info,_) ->
+        let assert_fun_exp = Cil.Lval(Cil.Var assert_var_info,Cil.NoOffset)
+        (* list of extern invariant expressions *)
+        in let expr_list = Extern.get_loc_inv_expr (getLoc u)
+        (* modifiable get-local-function *)
+        in let getl_mod (modified_state:S.D.t) (u',c') = 
+          if (u==u' && c==c') then modified_state (* todo: check if physical equality is good here *)
+          else getl (u',c')
+        (* recompute a given state [s] according to an invariant-list [expr_list] by applying a modified get-local-function *)
+        in let rec change_state expr_list (s:S.D.t):S.D.t = match expr_list with
+          | e::es  ->
+            let new_s = tf_proc None assert_fun_exp [e] (u,c) u (getl_mod s) sidel getg sideg
+            in change_state es new_s
+          | []    ->  s
+        (* modified get-local-function for actual tf *)
+        in let getl' = getl_mod ( change_state expr_list (getl (u,c)) )
+        in tf (v,c) (e,u) getl' sidel getg sideg
+      | _ -> tf (v,c) (e,u) getl sidel getg sideg
     
   let tf (v,c) (e,u) getl sidel getg sideg =
     let old_loc  = !Tracing.current_loc in

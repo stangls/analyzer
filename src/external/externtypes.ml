@@ -2,9 +2,6 @@
 
 open Cil
 
-let print_location loc =
-  Printf.printf "Location: line %d , byte %d, file %s\n" loc.line loc.byte loc.file
-
 type variable = {
   name:string;
   (*ctype:string;*)

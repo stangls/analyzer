@@ -2,13 +2,16 @@
 #include<stdbool.h>
 #include<assert.h>
 
-void fun(int x){
+void fun2(int x){
   assert(x);
 }
 
 void* fun(void* args){
-  assert(1);
-  assert(0);
+  int y=1;
+  fun2(y);
+  y--;
+  fun2(y);
+  return NULL;
 }
 
 int main() {

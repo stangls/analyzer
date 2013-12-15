@@ -277,7 +277,7 @@ let main =
     let merged_AST = preprocess_files () |> merge_preprocessed
     in begin
       if get_bool "dbg.verbose" then print_endline "Loading external invariants.";
-      Extern.load_cil_invariants merged_AST !cFileNames;
+      Extern.init merged_AST !cFileNames;
       do_analyze merged_AST;
     end;
     if ((String.length (get_string "questions.file")) > 0) then question_save_db (get_string "questions.file") else ();
