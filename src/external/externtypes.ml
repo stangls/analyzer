@@ -30,8 +30,8 @@ type location =
     (* filename, functionName *)
   | FunctionEntry of string * string
 
-type varInfo = variable*value
-type invariant = location * varInfo list
+type var_invariant = variable*value
+type invariant = location * var_invariant list
 type cil_invariant = Cil.location * Cil.exp
 
 (* load invariants from a file *)
@@ -48,7 +48,7 @@ end
 module type Manipulator =
 sig
   type t = invariant list
-  type vi = varInfo list
+  type vi = var_invariant list
   (*
     returns a tuple of
     * all variable information at a certain position in a file (1st parameter)
