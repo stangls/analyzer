@@ -265,8 +265,8 @@ struct
     let visitor = new expr_converter_visitor invariants
     in begin
       (* compute the control flow graph *)
-      Cfg.clearFileCFG file ;
-      Cfg.computeFileCFG file ;
+      (*Cfg.clearFileCFG file ;
+      Cfg.computeFileCFG file ;*)
       (* create expressions from invariants *)
       visitCilFileSameGlobals ( visitor :> cilVisitor ) file;
       (* show how many invariants did not stick to the code locations visited *)
