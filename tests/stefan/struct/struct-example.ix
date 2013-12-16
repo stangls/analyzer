@@ -1,0 +1,43 @@
+<ix version="1.0">
+                   <tool>astree</tool>
+                   <invariant>
+                               <location>
+                                          <function-entry>add</function-entry>
+                                          <line>8</line>
+                                          <column>2</column>
+                               </location>
+                               
+                               <variable>
+                                          <name>x</name>
+                                          <type>signed int</type>
+                                          <interval>
+                                                     <lower-bound>1</lower-bound>
+                                                     <upper-bound>1</upper-bound>
+                                          </interval>
+                               </variable>
+                               
+                               <variable>
+                                          <name>s.a</name>
+                                          <type>signed int</type>
+                                          <interval>
+                                                     <lower-bound>10</lower-bound>
+                                                     <upper-bound>10</upper-bound>
+                                          </interval>
+                               </variable>
+                               <variable>
+                                          <name>s.b</name>
+                                          <type>signed int</type>
+                                          <interval>
+                                                     <lower-bound>12</lower-bound>
+                                                     <upper-bound>12</upper-bound>
+                                          </interval>
+                               </variable>
+                   </invariant>
+                   <invariant>
+                               <location>
+                                          <function-entry>main</function-entry>
+                                          <line>13</line>
+                                          <column>6</column>
+                               </location>
+                   </invariant>
+</ix>
