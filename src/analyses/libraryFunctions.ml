@@ -9,12 +9,14 @@ module M = Messages
 type categories = [
   | `Malloc       
   | `Calloc       
-  | `Assert       of exp
-  | `Lock         of bool * bool (* try? * write? *)
+  | `Assert         of exp
+  | `Lock           of bool * bool (* try? * write? *)
   | `Unlock       
-  | `ThreadCreate of exp * exp (* f  * x       *)
-  | `ThreadJoin   of exp * exp (* id * ret_var *)
-  | `Unknown      of string ]
+  | `ThreadCreate   of exp * exp (* f  * x       *)
+  | `ThreadJoin     of exp * exp (* id * ret_var *)
+  | `Unknown        of string
+  | `GoblintCommit  of exp
+]
  
 let osek_renames = ref false
  
@@ -55,7 +57,14 @@ let classify' fn exps =
     | "mutex_unlock" | "ReleaseResource" | "_write_unlock" | "_read_unlock"
     | "pthread_mutex_unlock" | "__pthread_mutex_unlock" | "spin_unlock_irqrestore" | "up_read" | "up_write"
         -> `Unlock        
-    | x -> `Unknown x
+    | x ->
+      begin
+        if x=Extern.intern_assert.vname then
+          match exps with
+            | [e] -> `GoblintCommit e 
+            | _ -> M.bailwith "GoblintCommit argument mismatch! What have you done?"
+        else `Unknown x
+      end
 
 let classify fn exps =
   if not(!osek_renames) then classify' fn exps else classify' (OilUtil.get_api_names fn) exps

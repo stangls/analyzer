@@ -1,0 +1,30 @@
+<ix version="1.0">
+  <invariant>
+    <location>
+      <line>9</line>
+      <column>5</column>
+    </location>
+    <variable>
+      <name>i</name>
+      <type>signed int</type>
+      <interval>
+         <lower-bound>0</lower-bound>
+         <upper-bound>9</upper-bound>
+      </interval>
+    </variable>
+  </invariant>
+  <invariant>
+    <location>
+      <line>13</line>
+      <column>3</column>
+    </location>
+    <variable>
+      <name>i</name>
+      <type>signed int</type>
+      <interval>
+         <lower-bound>10</lower-bound>
+         <upper-bound>10</upper-bound>
+      </interval>
+    </variable>
+  </invariant>
+</ix>

@@ -10,7 +10,9 @@ type categories = [
   | `Unlock       
   | `ThreadCreate of exp * exp
   | `ThreadJoin   of exp * exp
-  | `Unknown      of string ]
+  | `Unknown      of string
+  | `GoblintCommit  of exp
+]
 
 (** Categories of special functions *)
  

@@ -168,6 +168,14 @@ struct
                 match get_cil_var var with
                   | Some cil_var -> begin
                       match value with
+                      | Interval (min,max) when min=max ->
+                          ( Formatcil.cExp
+                            "%v:var == %d:val"
+                            [
+                              ("var",Fv cil_var);
+                              ("val",Fd(min)); (* todo: check if var type matches cil_var.vtype, use kinteger and %e *)
+                            ]
+                          ) :: (get_exprs vis)
                       | Interval (min,max) ->
                           ( Formatcil.cExp
                             "( %v:var >= %d:min ) %b:and ( %v:var <= %d:max )"
@@ -285,7 +293,10 @@ module IF = IxFileInvariantsReader (*DummyInvariantsReader*)
 (* storage for converted variants *)
 let loaded_invariants = ref ([]:cil_invariant list)
 (* reference to the assertion-function *)
+let assert_type = TFun(Cil.voidType,Some ["expression",Cil.intType,[]],false,[])
 let assert_fun = ref None
+let intern_assert = makeGlobalVar "goblint's internal assert function" assert_type
+let use_intern_assert = true
 
 (*
   initialize required things for external information injection.
@@ -297,21 +308,20 @@ let init merged_AST cFileNames =
     match IF.of_c_file cFile with
       | Some invariants -> (Invariants.to_cil_invariant invariants merged_AST) @ agg
       | None            -> agg
-  and filter_assert = function
-    | GFun(fundec,_) ->
-      ( String.compare fundec.svar.vname "assert" = 0) &&
-      ( fundec.svar.vtype = TFun(Cil.voidType,Some ["expression",Cil.intType,[]],false,[]) )
-    | GVarDecl(varinfo,_) ->
-      ( String.compare varinfo.vname "assert" = 0) &&
-      ( varinfo.vtype = TFun(Cil.voidType,Some ["expression",Cil.intType,[]],false,[]) )
+  in let filter_assert = function
+    | GVarDecl(varinfo,_) when ( String.compare varinfo.vname "assert" = 0) && ( varinfo.vtype = assert_type ) ->
+      assert_fun:=Some varinfo; true
     | _ -> false
   in begin
     loaded_invariants := (List.fold_left add_invariants [] cFileNames);
-    assert_fun := try
-      Some (List.find filter_assert merged_AST.globals)
-    with Not_found ->
-      Printf.printf "WARNING: No assert(int) function found.\n";
-      None
+    if use_intern_assert then begin
+      assert_fun := Some (intern_assert)
+    end else begin
+      try
+        ignore (List.find filter_assert merged_AST.globals)
+      with Not_found ->
+        Printf.printf "WARNING: No assert(int) function found.\n";
+    end
   end
 
 let assert_fun () = !assert_fun

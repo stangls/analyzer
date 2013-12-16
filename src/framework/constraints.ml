@@ -259,7 +259,7 @@ struct
     (* determine expression of assertion-function. *)
     (* todo: here? why here? *)
     match Extern.assert_fun () with
-      | Some GVarDecl(assert_var_info,_) ->
+      | Some assert_var_info ->
         let assert_fun_exp = Cil.Lval(Cil.Var assert_var_info,Cil.NoOffset)
         (* list of extern invariant expressions *)
         in let expr_list = Extern.get_loc_inv_expr (getLoc u)
