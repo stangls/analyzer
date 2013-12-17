@@ -10,6 +10,7 @@ let filter_pos invs f l1 c1 l2 c2 =
   let map ((vis,ts):vi*t) (inv:invariant) : vi*t =
     match inv with
       | ( (Position (pf,pl,pc)), v ) when
+        (*Printf.printf "filter_pos %s %d,%d ∈? %s %d,%d-%d,%d: \n" pf pl pc f l1 c1 l2 c2;*)
         (pl>l1 || pl=l1 && pc>c1 ) && (pl<l2 || pl=l2 && pc<=c2) && (String.compare pf f = 0) -> (v@vis,ts) (* todo: use string hashes *)
       | _ -> (vis,inv::ts)
   in List.fold_left map ([],[]) invs
@@ -73,6 +74,7 @@ class expr_converter_visitor (invariants:invariant list) =
               match get_cil_var var with
                 | Some cil_var -> begin
                     match value with
+                    (* interval special case : single value *)
                     | Interval (min,max) when min=max ->
                         ( Formatcil.cExp
                           "%v:var == %d:val"
@@ -81,6 +83,7 @@ class expr_converter_visitor (invariants:invariant list) =
                             ("val",Fd(min)); (* todo: check if var type matches cil_var.vtype, use kinteger and %e *)
                           ]
                         ) :: (get_exprs vis)
+                    (* interval *)
                     | Interval (min,max) ->
                         ( Formatcil.cExp
                           "( %v:var >= %d:min ) %b:and ( %v:var <= %d:max )"
@@ -91,6 +94,7 @@ class expr_converter_visitor (invariants:invariant list) =
                             ("max",Fd(max)); (* todo: check if var type matches cil_var.vtype, use kinteger and %e *)
                           ]
                         ) :: (get_exprs vis)
+                    (* pointer *)
                     | Pointer (bases,min,max) ->
                         let rec exprs_for_bases bases agg : Cil.exp list = match bases with
                           | base::bs -> (
@@ -137,7 +141,7 @@ class expr_converter_visitor (invariants:invariant list) =
           | Some e -> exprs <- (loc,e)::exprs
       end
       (* no liveset? then we don't care about the filtered stuff *)
-      | None -> fun _ _ -> Printf.printf "Missing liveset information!\n"
+      | None -> fun _ _ -> Printf.printf "ERROR: Missing liveset information!\n"
     end
     (* visit global function *)
     method vfunc func = let loc=func.svar.vdecl in begin
@@ -184,7 +188,8 @@ let to_cil_invariant invariants file =
     visitCilFileSameGlobals ( visitor :> cilVisitor ) file;
     (* show how many invariants did not stick to the code locations visited *)
     let num_untransformed = List.length (visitor#get_invs)
-    in if (num_untransformed>0) then Printf.printf "WARNING: %d invariants could not be matched to appropriate code positions!\n" num_untransformed;
+    in if (num_untransformed>0) then
+      Printf.printf "WARNING: %d invariants could not be matched to appropriate code positions!\n" num_untransformed;
     (* return result *)
     visitor#result
   end
