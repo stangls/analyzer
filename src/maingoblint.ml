@@ -239,7 +239,6 @@ let merge_preprocessed (cpp_file_names, dirName) =
   Cilfacade.ugglyImperativeHack := merged_AST;
   merged_AST
 
-(* load external invariants *)
 (** Perform the analysis over the merged AST.  *)
 let do_analyze merged_AST =
   let module L = Printable.Liszt (Basetype.CilFundec) in  
@@ -274,10 +273,13 @@ let main =
     parse_arguments ();
     handle_flags ();
     if ((String.length (get_string "questions.file")) > 0) then question_load_db (get_string "questions.file") else ();
+    (* get AST *)
     let merged_AST = preprocess_files () |> merge_preprocessed
     in begin
       if get_bool "dbg.verbose" then print_endline "Loading external invariants.";
+      (* load external invariants *)
       Extern.init merged_AST !cFileNames;
+      (* perform actual analysis *)
       do_analyze merged_AST;
     end;
     if ((String.length (get_string "questions.file")) > 0) then question_save_db (get_string "questions.file") else ();
