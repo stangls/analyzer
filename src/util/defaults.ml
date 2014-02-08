@@ -75,7 +75,8 @@ let _ =
   reg Std "solverdiffs"     "false"        "Print out solver differences.";
   reg Std "allfuns"         "false"        "Analyzes all the functions (not just beginning from main).";
   reg Std "nonstatic"       "false"        "Analyzes all non-static functions.";
-  reg Std "ext_fname"       "''"           "path to XML file listing external invariants."
+  reg Std "ext_fname"       "''"           "path to XML file listing external invariants.";
+  reg Std "ext_enable"      "true"         "process external invariants."
                                                
 (* {4 category [Analyses]} *)
 
@@ -170,7 +171,7 @@ let default_schema =
 "
 { 'id'              : 'root'
 , 'type'            : 'object'
-, 'required'        : ['outfile', 'includes', 'kernel_includes', 'custom_includes', 'custom_incl', 'custom_libc', 'justcil', 'justcfg', 'dopartial', 'printstats', 'gccwarn', 'noverify', 'mainfun', 'exitfun', 'otherfun', 'allglobs', 'keepcpp', 'merge-conflicts', 'cppflags', 'kernel', 'dump_globs', 'result', 'solver', 'allfuns', 'nonstatic', 'ext_fname']
+, 'required'        : ['outfile', 'includes', 'kernel_includes', 'custom_includes', 'custom_incl', 'custom_libc', 'justcil', 'justcfg', 'dopartial', 'printstats', 'gccwarn', 'noverify', 'mainfun', 'exitfun', 'otherfun', 'allglobs', 'keepcpp', 'merge-conflicts', 'cppflags', 'kernel', 'dump_globs', 'result', 'solver', 'allfuns', 'nonstatic', 'ext_fname','ext_enable']
 , 'additionalProps' : false
 , 'properties' : 
   { 'ana' : 
@@ -221,6 +222,7 @@ let default_schema =
   , 'allfuns'         : {}
   , 'nonstatic'       : {}
   , 'ext_fname'       : {}
+  , 'ext_enable'      : {}
   }
 }"
 
