@@ -150,7 +150,11 @@ class expr_converter_visitor (invariants:invariant list) =
       let cur_line=loc.line and cur_byte=loc.byte in begin
         (* avoid more than one matching in same line with different byte offset *)
         if cur_line=prev_line && cur_byte<>prev_byte then begin
-          Printf.printf "WARNING: more than one location suitable for external invariants in line %i (maybe two statements in a line?)\n" cur_line
+          let oops = ref false in begin
+            exprs <- List.filter ( fun (l,_) -> if l.line=cur_line then begin oops:=true; false end else true ) exprs;
+            if !oops then
+              Printf.printf "WARNING: more than one location suitable for external invariants in line %i (maybe two statements in a line?)\n" cur_line
+          end
         end else begin
           this#matched (filter_pos invs loc.file prev_line max_int cur_line max_int) loc;
           prev_line <- cur_line
