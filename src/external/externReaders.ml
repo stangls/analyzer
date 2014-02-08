@@ -15,6 +15,7 @@ struct
         ]
       )
     ]
+  let of_file fn = None
 
 end
 
@@ -41,6 +42,7 @@ struct
     in List.filter selector (children xml)
   let element_value xml = pcdata ( List.hd (children xml) )
 
+  exception No_location
   let of_xml_file fn cfn =
     let path=try Str.string_before fn ( Str.search_forward fileRegexp fn 0 ) with Not_found -> ""
     in
@@ -51,14 +53,28 @@ struct
           in let convert_var_invariants (var_invariants:var_invariant list) node : var_invariant list = 
             let nodeTag=tag node
             in if nodeTag="location" then begin
-              let file = try path ^ "/" ^ element_value (get_element "file" node) with Not_found -> cfn
-              in
-                loc:=Some (Position(
-                  file,
-                  int_of_string (element_value (get_element "line" node)),
-                  int_of_string (element_value (get_element "column" node))
-                ));
-                var_invariants
+              (* fault-tolerant location-interpretation *)
+              let file =
+                try Some (path ^ "/" ^ element_value (get_element "orig-file" node)) with Not_found ->
+                try Some (path ^ "/" ^ element_value (get_element "org-file" node)) with Not_found ->
+                try Some (path ^ "/" ^ element_value (get_element "file" node)) with Not_found -> cfn
+              and line =
+                try Some( int_of_string (element_value (get_element "orig-line" node)) ) with Not_found ->
+                try Some( int_of_string (element_value (get_element "org-line" node)) ) with Not_found ->
+                try Some( int_of_string (element_value (get_element "line" node)) ) with Not_found -> None
+              and column =
+                try Some( int_of_string (element_value (get_element "orig-column" node)) ) with Not_found ->
+                try Some( int_of_string (element_value (get_element "org-column" node)) ) with Not_found ->
+                try Some( int_of_string (element_value (get_element "column" node)) ) with Not_found -> None
+              in begin
+                match file,line,column with
+                | Some file, Some line, Some col ->
+                  loc:=Some (Position( file, line, col ))
+                | Some file, Some line, None ->
+                  loc:=Some (Position( file, line, 0 ))
+                | _ -> ()
+              end;
+              var_invariants
             end else if nodeTag="variable" then begin
               let name=ref None in let value=ref None
               in let convert_variable node =
@@ -113,7 +129,10 @@ struct
     | File_not_found _ -> None
 
   let of_c_file fn =
-    of_xml_file (Str.replace_first noFileEndRegexp ".ix" fn) fn
+    of_xml_file (Str.replace_first noFileEndRegexp ".ix" fn) (Some fn)
+
+  let of_file fn =
+    of_xml_file fn None
 
 end
 

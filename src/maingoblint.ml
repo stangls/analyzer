@@ -277,7 +277,7 @@ let main =
     let merged_AST = preprocess_files () |> merge_preprocessed
     in begin
       if get_bool "dbg.verbose" then print_endline "Loading external invariants.";
-      (* load external invariants *)
+      (* initialize external invariants modules *)
       Extern.init merged_AST !cFileNames;
       (* perform actual analysis *)
       do_analyze merged_AST;
