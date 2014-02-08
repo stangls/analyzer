@@ -39,7 +39,9 @@ module type InvariantsReader =
 sig
   type t = invariant list
 
-  (* load from xml-file *)
+  (* load invariants of xml-file related to given c file (full path) *)
+  val of_c_file : string -> t option
+  (* load from actual-file (full path) *)
   val of_c_file : string -> t option
 
 end

@@ -3,33 +3,52 @@
 open Cil
 open ExternTypes
 open ExternReaders
+open GobConfig
 
 (* specify reader *)
 module IF = IxFileInvariantsReader (*DummyInvariantsReader*)
 (* storage for converted variants *)
 let loaded_invariants = ref ([]:cil_invariant list)
-(* reference to the assertion-function *)
+(* type of assertion-functions *)
 let assert_type = TFun(Cil.voidType,Some ["expression",Cil.intType,[]],false,[])
-let assert_fun = ref None
+(* artificial assertion function only used internally *)
 let intern_assert = makeGlobalVar "goblint's internal assert function" assert_type
-let use_intern_assert = true
+(* use internal assertion? if not, will use normal assertion-function (if available)
+   should be true, so Goblint can distinguish between normal assertions and injected assertions *)
+let use_intern_assert = true 
+(* the actual assertion function used for injection of invariants *)
+let assert_fun = ref None
 
 (*
-  initialize required things for external information injection.
-  loads invariants for c-file and convert to cil-format.
-  determines a function to be used as assertion-function.
+  initialize required things for external invariants.
+  loads invariants for c-files and invariants from file given on command-line and converts them into
+  cil-expressions for later injection.
+  also determines a function to be used as assertion-function for injection (configuration see above)
+  confuration parameters:
+    ext_read : boolean      read actual external information (to be injected)
+    ext_read_file : string  (additional) filename to read from with the configured readers (see above)
 *)
 let init merged_AST cFileNames =
-  let add_invariants agg cFile = 
+  let add_invariants_of_cFile agg cFile =
     match IF.of_c_file cFile with
-      | Some invariants -> (ExternInvariants.to_cil_invariant invariants merged_AST) @ agg
+      | Some invariants ->
+        if get_bool "dbg.verbose" then Printf.printf "Found %d external invariants for c-file %s.\n" ( List.length invariants ) cFile;
+        (ExternInvariants.to_cil_invariant invariants merged_AST) @ agg
+      | None            -> agg
+  in let add_invariants_of_config agg = 
+    let fName = get_string "ext_readFile"
+    in match IF.of_c_file fName with
+      | Some invariants ->
+        if get_bool "dbg.verbose" then Printf.printf "Found %d external invariants in file %s.\n" ( List.length invariants ) fName;
+        (ExternInvariants.to_cil_invariant invariants merged_AST) @ agg
       | None            -> agg
   in let filter_assert = function
     | GVarDecl(varinfo,_) when ( String.compare varinfo.vname "assert" = 0) && ( varinfo.vtype = assert_type ) ->
       assert_fun:=Some varinfo; true
     | _ -> false
   in begin
-    loaded_invariants := (List.fold_left add_invariants [] cFileNames);
+    if get_bool "ext_read" then
+      loaded_invariants := add_invariants_of_config (List.fold_left add_invariants_of_cFile [] cFileNames);
     if use_intern_assert then begin
       assert_fun := Some (intern_assert)
     end else begin

@@ -256,7 +256,7 @@ struct
 
   (* inject assertions for invariants by substituting state of variable (u,c) with modified get-local-function *)
   let tf (v,c) (e,u) getl sidel getg sideg =
-    if get_bool "ext_enable" then begin
+    if get_bool "ext_read" then begin
       (* determine expression of assertion-function. *)
       (* todo: here? why here? *)
       match Extern.assert_fun () with

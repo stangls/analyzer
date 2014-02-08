@@ -278,7 +278,7 @@ let main =
     in begin
       if get_bool "dbg.verbose" then print_endline "Loading external invariants.";
       (* load external invariants *)
-      if get_bool "ext_enable" then Extern.init merged_AST !cFileNames;
+      Extern.init merged_AST !cFileNames;
       (* perform actual analysis *)
       do_analyze merged_AST;
     end;
