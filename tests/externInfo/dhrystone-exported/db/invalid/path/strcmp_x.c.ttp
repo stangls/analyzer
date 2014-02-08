@@ -1,0 +1,10 @@
+./db/invalid/path/strcmp_x.c : 66.20-66.21 : -- value at line 68, column 8 --# # s ; pointer ; { String1Loc } + {0}# 
+./db/invalid/path/strcmp_x.c : 66.29-66.30 : -- value at line 68, column 8 --# # t ; pointer ; { String2Loc } + {0}# 
+./db/invalid/path/strcmp_x.c : 68.17-68.18 : -- value at line 68, column 8 --# # s ; pointer ; { String1Loc } + {0}#  #-- value at line 68, column 26 --# #                                      s ; pointer ; { String1Loc } + [0, 18]# 
+./db/invalid/path/strcmp_x.c : 68.23-68.24 : -- value at line 68, column 8 --# # t ; pointer ; { String2Loc } + {0}#  #-- value at line 68, column 26 --# #                                      t ; pointer ; { String2Loc } + [0, 18]# 
+./db/invalid/path/strcmp_x.c : 68.26-68.27 : -- value at line 68, column 26 --# # s ; pointer ; { String1Loc } + [0, 18]#  #-- value at line 68, column 31 --# #                                      s ; pointer ; { String1Loc } + [1, 19] /\ != 0# 
+./db/invalid/path/strcmp_x.c : 68.31-68.32 : -- value at line 68, column 31 --# # t ; pointer ; { String2Loc } + [0, 18]#  #-- value at line 68, column 37 --# #                                      t ; pointer ; { String2Loc } + [1, 19] /\ != 0# 
+./db/invalid/path/strcmp_x.c : 68.37-68.44 : -- value at line 68, column 37 --# #                                    counter ; signed int ; [472, 490] /\ != 0#  #-- value at line 69, column 16 --# #                                      counter ; signed int ; [472, 490] /\ != 0# 
+./db/invalid/path/strcmp_x.c : 69.22-69.23 : -- value at line 69, column 16 --# # s ; pointer ; { String1Loc } + [0, 18]#  #-- value at line 71, column 8 --# #                                     s ; pointer ; { String1Loc } + {19} /\ != 0# 
+./db/invalid/path/strcmp_x.c : 71.17-71.18 : -- value at line 71, column 8 --# #                                   s ; pointer ; { String1Loc } + {19} /\ != 0# 
+./db/invalid/path/strcmp_x.c : 71.22-71.23 : -- value at line 71, column 8 --# #                                   t ; pointer ; { String2Loc } + {19} /\ != 0# 

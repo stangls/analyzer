@@ -1,0 +1,7 @@
+./db/invalid/path/malloc_x.c : 66.19-66.23 : -- value at line 69, column 3 --# # size ; signed int ; {48} /\ != 0# 
+./db/invalid/path/malloc_x.c : 69.3-69.5 : -- value at line 69, column 3 --# #                                   zz__ASTREE___db_invalid_path_malloc_x_c_284 ; signed int ; [0, 48]#  #-- value at line 70, column 3 --# #                                     zz__ASTREE___db_invalid_path_malloc_x_c_284 ; signed int ; [48, 96] /\ != 0# 
+./db/invalid/path/malloc_x.c : 69.7-69.11 : -- value at line 69, column 3 --# # size ; signed int ; {48} /\ != 0#  #-- value at line 70, column 3 --# # size ; signed int ; {48} /\ != 0# 
+./db/invalid/path/malloc_x.c : 70.3-70.10 : -- value at line 70, column 3 --# # counter ; signed int ; [7, 108] /\ != 0#  #-- value at line 71, column 3 --# #                                     counter ; signed int ; [108, 209] /\ != 0# 
+./db/invalid/path/malloc_x.c : 71.11-71.15 : -- value at line 71, column 3 --# #too many cells#
+./db/invalid/path/malloc_x.c : 71.16-71.18 : -- value at line 71, column 3 --# #                                   zz__ASTREE___db_invalid_path_malloc_x_c_284 ; signed int ; [48, 96] /\ != 0# 
+./db/invalid/path/malloc_x.c : 71.19-71.23 : -- value at line 71, column 3 --# # size ; signed int ; {48} /\ != 0# 

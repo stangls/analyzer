@@ -1,0 +1,3 @@
+./db/invalid/path/main.c : 87.2-87.9 : -- value at line 87, column 2 --# # counter ; signed int ; {0}#  #-- value at line 88, column 2 --# # counter ; signed int ; {7} /\ != 0# 
+./db/invalid/path/main.c : 88.2-88.4 : -- value at line 88, column 2 --# # zz ; signed int ; {0}#  #-- value at line 89, column 2 --# # zz ; signed int ; {0}# 
+./db/invalid/path/main.c : 90.9-90.16 : -- value at line 90, column 2 --# # counter ; signed int ; {855} /\ != 0# 

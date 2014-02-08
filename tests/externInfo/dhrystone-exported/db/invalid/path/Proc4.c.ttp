@@ -1,0 +1,6 @@
+./db/invalid/path/Proc4.c : 70.8-70.15 : -- value at line 70, column 8 --# #                                   BoolLoc ; signed int ; [-2147483648, 2147483647]#  #-- value at line 71, column 8 --# # BoolLoc ; signed int ; {1} /\ != 0# 
+./db/invalid/path/Proc4.c : 70.18-70.27 : -- value at line 70, column 8 --# # Char1Glob ; unsigned char ; {65} /\ != 0#  #-- value at line 71, column 8 --# #                                     Char1Glob ; unsigned char ; {65} /\ != 0# 
+./db/invalid/path/Proc4.c : 71.8-71.15 : -- value at line 71, column 8 --# # BoolLoc ; signed int ; {1} /\ != 0#  #-- value at line 72, column 8 --# # BoolLoc ; signed int ; {1} /\ != 0# 
+./db/invalid/path/Proc4.c : 71.19-71.27 : -- value at line 71, column 8 --# # BoolGlob ; signed int ; {0}#  #-- value at line 72, column 8 --# # BoolGlob ; signed int ; {0}# 
+./db/invalid/path/Proc4.c : 72.8-72.15 : -- value at line 72, column 8 --# # counter ; signed int ; {313} /\ != 0#  #-- value at line 73, column 8 --# # counter ; signed int ; {350} /\ != 0# 
+./db/invalid/path/Proc4.c : 73.8-73.17 : -- value at line 73, column 8 --# # Char2Glob ; unsigned char ; {0}# 
