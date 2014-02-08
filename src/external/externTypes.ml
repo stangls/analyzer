@@ -5,7 +5,7 @@ open Cil
 type variable = {
   name:string;
   (*ctype:string;*)
-  (*file:string; (* should be irrelephant: either the variable is in the scope or not... *) *)
+  (*file:string; (* should be irrelevant: either the variable is in the scope or not... *) *)
 }
 
 type pointer_base =

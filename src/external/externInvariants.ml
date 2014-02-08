@@ -3,6 +3,8 @@ open Cil
 open Liveness
 open ExternTypes
 
+(* is a Manipulator, see externTypes.ml *)
+
 type t = invariant list
 type vi = var_invariant list
 
@@ -23,7 +25,7 @@ let filter_func invs f func =
   in List.fold_left map ([],[]) invs
 
 let print_location loc ~name =
-  ()(*Printf.printf "Location: line %d , byte %d, file %s (%s)\n" loc.line loc.byte loc.file name*)
+  () (*Printf.printf "Location: line %d , byte %d, file %s (%s)\n" loc.line loc.byte loc.file name*)
 
 class expr_converter_visitor (invariants:invariant list) =
   object (this)
@@ -31,6 +33,7 @@ class expr_converter_visitor (invariants:invariant list) =
     val mutable invs = invariants
     val mutable exprs = []
     val mutable prev_line = 0
+    val mutable prev_byte = 0
     val mutable recent_liveset = None
     method result = exprs
     (* create cil expressions from list of matched var_invariants at location loc with known liveset of variables. *)
@@ -143,6 +146,17 @@ class expr_converter_visitor (invariants:invariant list) =
       (* no liveset? then we don't care about the filtered stuff *)
       | None -> fun _ _ -> Printf.printf "ERROR: Missing liveset information!\n"
     end
+    method tryMatch loc =
+      let cur_line=loc.line and cur_byte=loc.byte in begin
+        (* avoid more than one matching in same line with different byte offset *)
+        if cur_line=prev_line && cur_byte<>prev_byte then begin
+          Printf.printf "WARNING: more than one location suitable for external invariants in line %i (maybe two statements in a line?)\n" cur_line
+        end else begin
+          this#matched (filter_pos invs loc.file prev_line max_int cur_line max_int) loc;
+          prev_line <- cur_line
+        end;
+        prev_byte <- cur_byte
+      end
     (* visit global function *)
     method vfunc func = let loc=func.svar.vdecl in begin
       (* todo : function entry points f.svar.vname *)
@@ -157,20 +171,16 @@ class expr_converter_visitor (invariants:invariant list) =
       recent_liveset <- getLiveSet stmt.sid;
       let loc=get_stmtLoc stmt.skind
       in begin
-        let cur_line=loc.line in begin
-          print_location loc ~name: "stmt";
-          this#matched (filter_pos invs loc.file prev_line max_int cur_line max_int) loc;
-          prev_line <- cur_line;
-          DoChildren
-        end
+        print_location loc ~name: "stmt";
+        this#tryMatch loc;
+        DoChildren
       end
     (* visit instruction *)
     method vinst instr =
       let loc=get_instrLoc instr
-      in let cur_line=loc.line in begin
+      in begin
         print_location loc ~name:"instr";
-        this#matched (filter_pos invs loc.file prev_line max_int cur_line max_int) loc;
-        prev_line <- cur_line;
+        this#tryMatch loc;
         SkipChildren
       end
     (* get list of unvisited invariants *)
