@@ -209,7 +209,7 @@ let to_cil_invariant invariants file =
     (* show how many invariants did not stick to the code locations visited *)
     let num_untransformed = List.length (visitor#get_invs) + visitor#get_num_filtered_invs
     in if (num_untransformed>0) then
-      Printf.printf "WARNING: %d invariants could not be matched to appropriate code positions!\n" num_untransformed;
+      Printf.printf "WARNING: %d invariants could not be matched to appropriate code positions or translated to cil expressions!\n" num_untransformed;
     (* return result *)
     visitor#result
   end
