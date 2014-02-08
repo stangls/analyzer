@@ -35,6 +35,7 @@ class expr_converter_visitor (invariants:invariant list) =
     val mutable prev_line = 0
     val mutable prev_byte = 0
     val mutable recent_liveset = None
+    val mutable num_filtered_invariants = 0
     method result = exprs
     (* create cil expressions from list of matched var_invariants at location loc with known liveset of variables. *)
     method matched (* (var_invariants,filtered_invariants) loc *) = begin
@@ -150,10 +151,13 @@ class expr_converter_visitor (invariants:invariant list) =
       let cur_line=loc.line and cur_byte=loc.byte in begin
         (* avoid more than one matching in same line with different byte offset *)
         if cur_line=prev_line && cur_byte<>prev_byte then begin
-          let oops = ref false in begin
-            exprs <- List.filter ( fun (l,_) -> if l.line=cur_line then begin oops:=true; false end else true ) exprs;
-            if !oops then
-              Printf.printf "WARNING: more than one location suitable for external invariants in line %i (maybe two statements in a line?)\n" cur_line
+          let oops = ref 0 in begin
+            exprs <- List.filter ( fun (l,_) -> if l.line=cur_line then begin oops:=!oops+1; false end else true ) exprs;
+            if !oops>0 then begin
+              Printf.printf "WARNING: more than one location suitable for external invariants in %s line %i (maybe two instructions in one line?)\n" loc.file cur_line;
+              Printf.printf "         had to ignore %d invariants because I'm not able to handle this (yet?).\n" !oops;
+              num_filtered_invariants <- num_filtered_invariants + !oops
+            end
           end
         end else begin
           this#matched (filter_pos invs loc.file prev_line max_int cur_line max_int) loc;
@@ -189,6 +193,8 @@ class expr_converter_visitor (invariants:invariant list) =
       end
     (* get list of unvisited invariants *)
     method get_invs = invs
+    (* get number of invariants filtered away *)
+    method get_num_filtered_invs = num_filtered_invariants
   end
 
 let to_cil_invariant invariants file =
@@ -201,7 +207,7 @@ let to_cil_invariant invariants file =
     (* create expressions from invariants *)
     visitCilFileSameGlobals ( visitor :> cilVisitor ) file;
     (* show how many invariants did not stick to the code locations visited *)
-    let num_untransformed = List.length (visitor#get_invs)
+    let num_untransformed = List.length (visitor#get_invs) + visitor#get_num_filtered_invs
     in if (num_untransformed>0) then
       Printf.printf "WARNING: %d invariants could not be matched to appropriate code positions!\n" num_untransformed;
     (* return result *)
