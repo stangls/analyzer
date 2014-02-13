@@ -32,11 +32,11 @@ module M1 : Manipulator = struct
     object (this)
       inherit nopCilVisitor
       val mutable invs:invariant list = invariants
-      val mutable exprs:(Cil.location*Cil.exp*invariant list) list = []
+      val mutable exprs:(cil_invariant*invariant list) list = []
       val mutable prev_loc:Cil.location = { line=0; file=""; byte=0 }
       val mutable recent_liveset = None
       val mutable filtered_invariants:invariant list = []
-      method result = List.map (fun (l,e,_) -> (l,e)) exprs
+      method result = exprs
       (*
         create cil expressions from list of location-matched invariants at location loc with known liveset of variables.
         stores actual result in exprs and returns tuple of list of not translated (=filtered) invariants
@@ -172,7 +172,7 @@ module M1 : Manipulator = struct
           in begin begin
               match merge_exprs exprsCreated (Fb LAnd) with
               | None -> ()
-              | Some e -> exprs <- (loc,e,used_invariants)::exprs
+              | Some e -> exprs <- ((loc,e),used_invariants)::exprs
             end;
             filtered_invariants
           end
@@ -192,7 +192,7 @@ module M1 : Manipulator = struct
           (* more than one matching in one line with different byte offset ⇒ filter out already translated invariants of this line *)
           if loc.file=prev_loc.file && loc.line=prev_loc.line && loc.byte<>prev_loc.byte then begin
             let oops = ref 0 in begin
-              exprs <- List.filter ( fun (l,e,original_invariants) ->
+              exprs <- List.filter ( fun ((l,e),original_invariants) ->
                     if l.line=loc.line && l.file=loc.file then begin
                       (*Printf.printf "filtered %s\n" ( Pretty.sprint ~width:80 ( d_cil_invariant (l,e) ) );*)
                       oops:=!oops+1;
@@ -244,14 +244,14 @@ module M1 : Manipulator = struct
       method get_filtered_invs = filtered_invariants
     end
 
-  let to_cil_invariant invariants file =
+  let transform_to_cil invariants file =
     (* cilVisitor for visiting functions and statements *)
     let visitor = new expr_converter_visitor invariants
     in begin
       (* create expressions from invariants *)
       visitCilFileSameGlobals ( visitor :> cilVisitor ) file;
       (* show invariants not mapped to cil-expressions *)
-      let num_position_unmatched = List.length (visitor#get_invs)
+      let num_position_unmatched = Helper.num_var_invariants visitor#get_invs
       and num_filtered = List.length (visitor#get_filtered_invs)
       in if num_position_unmatched>0 || num_filtered>0 then begin
         Printf.printf "WARNING: %d invariants seem not related to code positions at all and %d could not be translated to cil expressions!\n" num_position_unmatched num_filtered;

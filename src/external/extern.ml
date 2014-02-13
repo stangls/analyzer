@@ -38,14 +38,13 @@ let init merged_AST cFileNames =
       | Some invariants ->
         if get_bool "dbg.verbose" then begin
           Printf.printf "Read %d external invariants from %s.\n" ( List.length invariants ) get_param;
-          let num_var_invariants' cnt (_,vis) = cnt+(List.length vis)
-          in let num_var_invariants = List.fold_left num_var_invariants' 0 invariants
-          in Printf.printf "This corresponds to %d total invariants (multiple in one location have been concatenated with AND to one external invariant).\n" num_var_invariants;
+          Printf.printf "This corresponds to %d total invariants (multiple in one location have been concatenated with AND to one external invariant).\n" (Helper.num_var_invariants invariants);
         end;
-        let cil_invariants = M.to_cil_invariant invariants merged_AST
+        let (cil_invariants,transformed_invariants) = List.split (M.transform_to_cil invariants merged_AST)
         in
           if get_bool "dbg.verbose" then begin
-            Printf.printf "From the above, %d assert-expressions could be developed.\n" ( List.length cil_invariants );
+            let num_transformed = List.length( List.concat transformed_invariants )
+            in Printf.printf "From the above, %d assert-expressions could be developed from %d invariants.\n" ( List.length cil_invariants ) num_transformed ;
           end;
           cil_invariants @ agg
       | None            -> agg

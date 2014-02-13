@@ -99,6 +99,10 @@ module type Manipulator =
 sig
   type t = invariant list
   (*
+    given a cil file, transform invariants to cil_invariants (with it's original invariants attached).
+  *)
+  val transform_to_cil : t -> file -> (cil_invariant*t) list
+  (*
     returns a tuple of
     * all invariants at a certain position in a file (1st parameter)
       after line1, column1 (2nd&3rd) but before line2, column2 (4th&5th, including).
@@ -111,9 +115,11 @@ sig
     * all remaining invariants which are not in that range
   *)
   val filter_func : t -> string -> string -> t*t
-  (*
-    transform invariants to cil_invariants given a cil file.
-  *)
-  val to_cil_invariant : t -> file -> cil_invariant list
 end
 
+module Helper : sig
+  val num_var_invariants : invariant list -> int
+end = struct
+  let num_var_invariants' cnt (_,vis) = cnt+(List.length vis)
+  let num_var_invariants invariants = List.fold_left num_var_invariants' 0 invariants
+end
