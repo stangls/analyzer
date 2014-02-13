@@ -27,6 +27,7 @@ struct
 
   let noFileEndRegexp = Str.regexp "\\.[^.]*$"
   let fileRegexp = Str.regexp "/[^/]*$"
+  let noValidVarNameChar = Str.regexp "[^A-Za-z0-9_].*$"
 
   (* todo: usages of get_element and get_elements should check for Not_found exception *)
 
@@ -41,6 +42,8 @@ struct
       | _ -> false
     in List.filter selector (children xml)
   let element_value xml = pcdata ( List.hd (children xml) )
+
+  let clean_var_name vn = try Str.string_before vn ( Str.search_forward noValidVarNameChar vn 0 ) with Not_found -> vn
 
   exception No_location
   let of_xml_file fn cfn =
@@ -79,7 +82,7 @@ struct
               let name=ref None in let value=ref None
               in let convert_variable node =
                 let nodeTag=tag node
-                in if nodeTag="name" then name:=Some (element_value node)
+                in if nodeTag="name" then name:=Some (clean_var_name (element_value node))
                 else if nodeTag="interval" then
                   value:=Some (Interval(
                     int_of_string (element_value (get_element "lower-bound" node)),
@@ -90,7 +93,7 @@ struct
                   in let mk_pointer_base element = match (element_value element) with
                     | "NULL" -> Null
                     | "INVALID" -> Invalid
-                    | x -> Variable {name=x}
+                    | x -> Variable {name=clean_var_name x}
                   in value:=Some (Pointer(
                     List.map mk_pointer_base (get_elements "base" node),
                     int_of_string (element_value (get_element "lower-bound" interval)),
@@ -104,7 +107,7 @@ struct
                     Printf.printf "WARNING: Encountered malformed variable %s !\n" name;
                     var_invariants
                   end
-                | None, _ -> begin
+                | _ -> begin
                     Printf.printf "WARNING: Encountered malformed variable !\n";
                     var_invariants
                   end
