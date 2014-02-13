@@ -3,10 +3,14 @@
 open Cil
 open ExternTypes
 open ExternReaders
+open ExternManipulator
 open GobConfig
 
 (* specify reader *)
 module IF = IxFileInvariantsReader (*DummyInvariantsReader*)
+(* specify modifier *)
+module M = M1
+
 (* storage for converted variants *)
 let loaded_invariants = ref ([]:cil_invariant list)
 (* type of assertion-functions *)
@@ -29,18 +33,21 @@ let assert_fun = ref None
     ext_read_file : string  (additional) filename to read from with the configured readers (see above)
 *)
 let init merged_AST cFileNames =
-  let add_invariants_of_cFile agg cFile =
-    match IF.of_c_file cFile with
+  let aggregate_cil_invariants inv_getter agg get_param : cil_invariant list = 
+    match inv_getter get_param with
       | Some invariants ->
-        if get_bool "dbg.verbose" then Printf.printf "Found %d external invariants for c-file %s.\n" ( List.length invariants ) cFile;
-        (ExternInvariants.to_cil_invariant invariants merged_AST) @ agg
-      | None            -> agg
-  in let add_invariants_of_config agg = 
-    let fName = get_string "ext_readFile"
-    in match IF.of_c_file fName with
-      | Some invariants ->
-        if get_bool "dbg.verbose" then Printf.printf "Found %d external invariants in file %s.\n" ( List.length invariants ) fName;
-        (ExternInvariants.to_cil_invariant invariants merged_AST) @ agg
+        if get_bool "dbg.verbose" then begin
+          Printf.printf "Read %d external invariants from %s.\n" ( List.length invariants ) get_param;
+          let num_var_invariants' cnt (_,vis) = cnt+(List.length vis)
+          in let num_var_invariants = List.fold_left num_var_invariants' 0 invariants
+          in Printf.printf "This corresponds to %d total invariants (multiple in one location have been concatenated with AND to one external invariant).\n" num_var_invariants;
+        end;
+        let cil_invariants = M.to_cil_invariant invariants merged_AST
+        in
+          if get_bool "dbg.verbose" then begin
+            Printf.printf "From the above, %d assert-expressions could be developed.\n" ( List.length cil_invariants );
+          end;
+          cil_invariants @ agg
       | None            -> agg
   in let filter_assert = function
     | GVarDecl(varinfo,_) when ( String.compare varinfo.vname "assert" = 0) && ( varinfo.vtype = assert_type ) ->
@@ -48,7 +55,7 @@ let init merged_AST cFileNames =
     | _ -> false
   in begin
     if get_bool "ext_read" then
-      loaded_invariants := add_invariants_of_config (List.fold_left add_invariants_of_cFile [] cFileNames);
+      loaded_invariants := List.fold_left (aggregate_cil_invariants IF.of_c_file) (aggregate_cil_invariants IF.of_file [] (get_string "ext_readFile")) cFileNames;
     if use_intern_assert then begin
       assert_fun := Some (intern_assert)
     end else begin
