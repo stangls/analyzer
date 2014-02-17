@@ -152,8 +152,17 @@ module M1 : Manipulator = struct
                                     get_exprs_vi vis used_invariants ((inv_loc,[(var,value)])::filtered_invariants)
                                   end
                               end
+                          (* Or *)
+                          | Or subVis ->
+                            let (exprsFollowing,viUsed,viFiltered)=get_exprs_vi vis used_invariants filtered_invariants
+                            in let (subExprs,subViUsed,subViFiltered) = get_exprs_vi (List.map (fun vi->(var,vi)) subVis) viUsed viFiltered
+                            in let expr=merge_exprs subExprs (Fb LOr)
+                            in begin match expr with
+                              | Some expr -> (List.rev (expr::(List.rev exprsFollowing)),subViUsed,subViFiltered)
+                              | None -> (exprsFollowing,subViUsed,subViFiltered)
+                            end
                           | _ -> begin
-                              Printf.printf "ERROR: Unsupported external type";
+                              Printf.printf "ERROR: Unsupported external type\n";
                               get_exprs_vi vis used_invariants ((inv_loc,[(var,value)])::filtered_invariants)
                             end
                       end
@@ -169,10 +178,14 @@ module M1 : Manipulator = struct
               | [] ->  ([],used_invariants,filtered_invariants)
               (* end get_exprs *)
           in let (exprsCreated,used_invariants,filtered_invariants) = get_exprs invariants [] []
-          in begin begin
+          in begin
+            begin
               match merge_exprs exprsCreated (Fb LAnd) with
               | None -> ()
-              | Some e -> exprs <- ((loc,e),used_invariants)::exprs
+              | Some e -> begin
+                  if (get_bool "dbg.verbose") then Printf.printf "expr created : %s\n" ( Pretty.sprint ~width:80 ( d_exp () e ) );
+                  exprs <- ((loc,e),used_invariants)::exprs
+                end
             end;
             filtered_invariants
           end
@@ -262,5 +275,24 @@ module M1 : Manipulator = struct
       (* return result *)
       visitor#result
     end
+
+  let group_var_invariant_by_variables (vis:var_invariant list) : var_invariant list =
+    let group_vi_by_variables grpd (var,value) =
+      let rec add_var var value (processed:var_invariant list) (unprocessed:var_invariant list) :var_invariant list = match unprocessed with
+      | (var2,value2)::vis ->
+        if String.compare var.name var2.name = 0 then (* todo: use string hashes *)
+          match value2 with
+          | Or(vals) -> processed@[(var2,Or(value::vals))]@vis (* grouped with an existing Or-group. we are done *)
+          | _ -> processed@[(var2,Or [value;value2])]@vis (* grouped by creating a new Or-group. we are done *)
+        else
+          add_var var value ((var2,value2)::processed) vis (* ungrouped yet, check further. leave current element as is. *)
+      | [] -> (var,value)::processed (* grouped in a 1-item group (does not require or-group (yet) *)
+      in add_var var value [] grpd
+    in List.rev (List.fold_left group_vi_by_variables [] vis)
+
+  let group_by_variables invs =
+    let group_by_variables' grouped (loc,vis) =
+      (loc,group_var_invariant_by_variables vis) :: grouped
+    in List.rev (List.fold_left group_by_variables' [] invs)
 
 end
