@@ -123,8 +123,8 @@ module M1 : Manipulator = struct
                                             ("var",Fv cil_var);
                                           ]
                                        in exprs_for_bases bs (expr::agg)
-                                    | Variable base_var ->
-                                      let agg'=match get_cil_var base_var with
+                                    | Variable base_var -> begin
+                                        match get_cil_var base_var with
                                         | Some cil_base_var ->
                                           let expr = 
                                             Formatcil.cExp
@@ -136,9 +136,9 @@ module M1 : Manipulator = struct
                                                 ("and",Fb LAnd);
                                                 ("max",Fd(max)); (* todo: check if var type matches cil_var.vtype, use kinteger and %e *)
                                               ]
-                                           in expr::agg
-                                         | None -> agg
-                                       in exprs_for_bases bs agg'
+                                           in exprs_for_bases bs (expr::agg)
+                                         | None -> [] (* if one pointer-var failes, we can not or it together with the others, we have to ignore the whole var_invariant *)
+                                       end
                                     | Invalid -> [] (* todo : invalid means what exactly? we know nothing? *)
                                   )
                                 | [] -> agg
