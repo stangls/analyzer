@@ -40,7 +40,8 @@ let init merged_AST cFileNames =
       | Some invariants ->
         if get_bool "dbg.verbose" then begin
           Printf.printf "Read %d external invariants from %s.\n" ( List.length invariants ) get_param;
-          Printf.printf "This corresponds to %d total invariants (multiple in one location had been concatenated with AND to one external invariant).\n" (Helper.num_var_invariants invariants);
+          Printf.printf "This corresponds to %d total variable-invariants (multiple in one location had been concatenated with AND to one external invariant).\n" (Helper.num_var_invariants invariants);
+          Printf.printf "  and %d total vi-values.\n" (Helper.num_var_values invariants);
           (*Printf.printf "%s\n" ( Pretty.sprint ~width:80 ( Pretty.docList d_invariant () (invariants) ) );*)
         end;
         let invariants =
@@ -48,7 +49,8 @@ let init merged_AST cFileNames =
             let grouped_invariants = M.group_by_variables invariants
             in begin
               if get_bool "dbg.verbose" then
-                Printf.printf "Grouped together to %d total invariants (multiple in one location with same variable name have been concatenated with OR to one external invariant).\n" (Helper.num_var_invariants grouped_invariants);
+                Printf.printf "Grouped together to %d total variable-invariants (multiple in one location with same variable name have been concatenated with OR to one external invariant).\n" (Helper.num_var_invariants grouped_invariants);
+                Printf.printf "  and %d total vi-values.\n" (Helper.num_var_values grouped_invariants);
                 (*Printf.printf "%s\n" ( Pretty.sprint ~width:80 ( Pretty.docList d_invariant () (grouped_invariants) ) );*)
                 grouped_invariants
             end
@@ -57,8 +59,10 @@ let init merged_AST cFileNames =
         in let (cil_invariants,transformed_invariants) = List.split (M.transform_to_cil invariants merged_AST)
         in
           if get_bool "dbg.verbose" then begin
-            let num_transformed = List.length( List.concat transformed_invariants )
-            in Printf.printf "From the above, %d assert-expressions could be developed from %d invariants.\n" ( List.length cil_invariants ) num_transformed ;
+            let transformed_invariants = List.concat transformed_invariants
+            in let num_transformed = Helper.num_var_invariants ( transformed_invariants )
+            in let num_v_transformed = Helper.num_var_values ( transformed_invariants )
+            in Printf.printf "From the above, %d assert-expressions could be developed from %d invariants ( %d values ).\n" ( List.length cil_invariants ) num_transformed num_v_transformed;
           end;
           cil_invariants @ agg
       | None            -> agg

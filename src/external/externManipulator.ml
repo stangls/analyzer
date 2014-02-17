@@ -155,12 +155,21 @@ module M1 : Manipulator = struct
                           (* Or *)
                           | Or subVis ->
                             let (exprsFollowing,viUsed,viFiltered)=get_exprs_vi vis used_invariants filtered_invariants
-                            in let (subExprs,subViUsed,subViFiltered) = get_exprs_vi (List.map (fun vi->(var,vi)) subVis) viUsed viFiltered
-                            in let expr=merge_exprs subExprs (Fb LOr)
-                            in begin match expr with
-                              | Some expr -> (List.rev (expr::(List.rev exprsFollowing)),subViUsed,subViFiltered)
-                              | None -> (exprsFollowing,subViUsed,subViFiltered)
-                            end
+                            in let pack=List.map (fun vi->(var,vi)) (* pack var_invariant list together with variable-inforamtion for seemless handling by get_exprs_vi *)
+                            in let snd l =List.map (fun (_,rest)->rest) l (* unpack var_invariant list from seemless handling by get_exprs_vi, l is required to allow full polymorphism *)
+                            in let (subExprs,subViUsed,subViFiltered) = get_exprs_vi (pack subVis) [] []
+                            in let subSucceded = (List.length subViFiltered)=0 (* none filtered because of failure ⇒ ok *)
+                            in if subSucceded then
+                              let expr=merge_exprs subExprs (Fb LOr)
+                              in let _vis : var_invariant list = List.concat (snd subViUsed) (* todo : this double-unpack is unneccessary, reason is that get_exprs_vi should actually handle filtered and used vis and not invariants *)
+                              in let _values : ExternTypes.value list = ((snd:(variable*value) list -> value list) (_vis:ExternTypes.var_invariant list) : ExternTypes.value list)
+                              in let used =(inv_loc,[(var,Or(_values))])::viUsed
+                              in begin match expr with
+                                | Some expr -> (List.rev (expr::(List.rev exprsFollowing)),used,viFiltered)
+                                | None -> (exprsFollowing,used,viFiltered)
+                              end
+                            else
+                              (exprsFollowing,viUsed,(inv_loc,[(var,value)])::viFiltered)
                           | _ -> begin
                               Printf.printf "ERROR: Unsupported external type\n";
                               get_exprs_vi vis used_invariants ((inv_loc,[(var,value)])::filtered_invariants)
@@ -265,9 +274,11 @@ module M1 : Manipulator = struct
       visitCilFileSameGlobals ( visitor :> cilVisitor ) file;
       (* show invariants not mapped to cil-expressions *)
       let num_position_unmatched = Helper.num_var_invariants visitor#get_invs
-      and num_filtered = List.length (visitor#get_filtered_invs)
+      and num_v_position_unmatched = Helper.num_var_values visitor#get_invs
+      and num_filtered = Helper.num_var_invariants (visitor#get_filtered_invs)
+      and num_v_filtered = Helper.num_var_values (visitor#get_filtered_invs)
       in if num_position_unmatched>0 || num_filtered>0 then begin
-        Printf.printf "WARNING: %d invariants seem not related to code positions at all and %d could not be translated to cil expressions!\n" num_position_unmatched num_filtered;
+        Printf.printf "WARNING: %d invariants (%d values) seem not related to code positions at all and %d (%d values) could not be translated to cil expressions!\n" num_position_unmatched num_v_position_unmatched num_filtered num_v_filtered;
         if (get_bool "dbg.verbose") then begin Printf.printf "Not matching with code : \n%s\n" ( Pretty.sprint ~width:80 ( Pretty.docList d_invariant () (visitor#get_invs) ) );
           Printf.printf "Not translated : \n%s\n" ( Pretty.sprint ~width:80 ( Pretty.docList d_invariant () (visitor#get_filtered_invs) ) );
         end

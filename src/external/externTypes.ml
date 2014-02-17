@@ -137,7 +137,7 @@ end = struct
     | _ -> cnt+1
   let rec num_var_values'' cnt (vis:var_invariant list) = match vis with
     | (var,values)::vis -> num_var_values'' ( num_var_values''' cnt values ) vis
-    | [] -> 0
+    | [] -> cnt
   let num_var_values' cnt (_,vis:location*var_invariant list) = num_var_values'' cnt vis
   let num_var_values invariants = List.fold_left num_var_values' 0 invariants
 end
