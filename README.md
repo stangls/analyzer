@@ -35,11 +35,17 @@ opam install ocamlfind camomile batteries xml-light cil
 
 
 Then clone the repository from this url and compile:
-  git clone $thisurl$
-  cd analyzer
-  ./make.sh
+```
+git clone $thisurl$
+cd analyzer
+./make.sh
+```
 
 Run goblint via:
-  ./goblint
+```
+./goblint
+```
 or the full testing suite via:
-  scripts/update_suite.rb
+```
+scripts/update_suite.rb
+```
