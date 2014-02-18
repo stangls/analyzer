@@ -48,11 +48,12 @@ let init merged_AST cFileNames =
           if group_invariants then
             let grouped_invariants = M.group_by_variables invariants
             in begin
-              if get_bool "dbg.verbose" then
+              if get_bool "dbg.verbose" then begin
                 Printf.printf "Grouped together to %d total variable-invariants (multiple in one location with same variable name have been concatenated with OR to one external invariant).\n" (Helper.num_var_invariants grouped_invariants);
                 Printf.printf "  and %d total vi-values.\n" (Helper.num_var_values grouped_invariants);
                 (*Printf.printf "%s\n" ( Pretty.sprint ~width:80 ( Pretty.docList d_invariant () (grouped_invariants) ) );*)
-                grouped_invariants
+              end;
+              grouped_invariants
             end
           else
             invariants

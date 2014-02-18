@@ -41,9 +41,9 @@ module M1 : Manipulator = struct
         create cil expressions from list of location-matched invariants at location loc with known liveset of variables.
         stores actual result in exprs and returns tuple of list of not translated (=filtered) invariants
       *)
-      method matched (* (invariants,unmatcheded_invariants) loc *) = begin
+      method matched (invariants,unmatched_invariants) loc = begin
         match recent_liveset with
-        | Some liveset -> fun (invariants,unmatched_invariants) loc -> begin
+        | Some liveset -> begin
           invs <- unmatched_invariants;
           (* translate a var_invariant to a cil_var *)
           let rec get_cil_var var =
@@ -70,125 +70,116 @@ module M1 : Manipulator = struct
               | e::es -> Some (merge_exprs' es e)
               | [] -> None
           in
-          (* create expressions from list of invariants and also return used and unused invariants (which have been/have not been translated to expressions for some reason) *)
-          let rec get_exprs invariants used_invariants filtered_invariants : (Cil.exp list * invariant list * invariant list ) =
-            match invariants with
-              | (inv_loc,var_invariants)::vis -> begin
-                let rec get_exprs_vi var_invariants used_invariants filtered_invariants = match var_invariants with
-                  | (var,value)::vis -> begin
-                    (* Printf.printf "get_exprs_vi of\n%s\n" ( Pretty.sprint ~width:80 ( d_var_invariant (var,value) ) );*)
-                    match get_cil_var var with
-                      | Some cil_var -> begin
-                          match value with
-                          (* interval special case : single value *)
-                          | Interval (min,max) when min=max ->
-                              let (exprsFollowing,viUsed,viFiltered)=get_exprs_vi vis used_invariants filtered_invariants
-                              in
-                                (
-                                  ( Formatcil.cExp
-                                    "%v:var == %d:val"
-                                    [
-                                      ("var",Fv cil_var);
-                                      ("val",Fd(min)); (* todo: check if var type matches cil_var.vtype, use kinteger and %e *)
-                                    ]
-                                  ) :: exprsFollowing,
-                                  ((inv_loc,[(var,value)])::viUsed), viFiltered
-                                )
-                          (* interval *)
-                          | Interval (min,max) ->
-                              let (exprsFollowing,viUsed,viFiltered)=get_exprs_vi vis used_invariants filtered_invariants
-                              in
-                                (
-                                  ( Formatcil.cExp
-                                    "( %v:var >= %d:min ) %b:and ( %v:var <= %d:max )"
-                                    [
-                                      ("var",Fv cil_var);
-                                      ("min",Fd(min)); (* todo: check if var type matches cil_var.vtype, use kinteger and %e *)
-                                      ("and",Fb LAnd);
-                                      ("max",Fd(max)); (* todo: check if var type matches cil_var.vtype, use kinteger and %e *)
-                                    ]
-                                  ) :: exprsFollowing,
-                                  ((inv_loc,[(var,value)])::viUsed), viFiltered
-                                )
-                          (* pointer *)
-                          | Pointer (bases,min,max) ->
-                              let rec exprs_for_bases bases agg : Cil.exp list = match bases with
-                                | base::bs -> (
-                                    match base with 
-                                    | Null ->
-                                      let expr =
-                                        Formatcil.cExp
-                                          "%v:var = NULL"
-                                          [
-                                            ("var",Fv cil_var);
-                                          ]
-                                       in exprs_for_bases bs (expr::agg)
-                                    | Variable base_var -> begin
-                                        match get_cil_var base_var with
-                                        | Some cil_base_var ->
-                                          let expr = 
-                                            Formatcil.cExp
-                                              "( %v:var >= ( %v:base_var + %d:min ) ) %b:and ( %v:var <= ( %v:base_var + %d:max ) )"
-                                              [
-                                                ("var",Fv cil_var);
-                                                ("base_var",Fv cil_base_var);
-                                                ("min",Fd(min)); (* todo: check if var type matches cil_var.vtype, use kinteger and %e *)
-                                                ("and",Fb LAnd);
-                                                ("max",Fd(max)); (* todo: check if var type matches cil_var.vtype, use kinteger and %e *)
-                                              ]
-                                           in exprs_for_bases bs (expr::agg)
-                                         | None -> [] (* if one pointer-var failes, we can not or it together with the others, we have to ignore the whole var_invariant *)
-                                       end
-                                    | Invalid -> [] (* todo : invalid means what exactly? we know nothing? *)
-                                  )
-                                | [] -> agg
-                              in begin
-                                match ( merge_exprs (exprs_for_bases bases []) (Fb LOr) ) with
-                                | Some x ->
-                                  let (exprsFollowing,viUsed,viFiltered)=get_exprs_vi vis used_invariants filtered_invariants
-                                  in ( x :: exprsFollowing, ((inv_loc,[(var,value)])::viUsed), viFiltered )
-                                | None -> begin
-                                    (*Printf.printf "filtered\n";*)
-                                    get_exprs_vi vis used_invariants ((inv_loc,[(var,value)])::filtered_invariants)
-                                  end
-                              end
-                          (* Or *)
-                          | Or subVis ->
-                            let (exprsFollowing,viUsed,viFiltered)=get_exprs_vi vis used_invariants filtered_invariants
-                            in let pack=List.map (fun vi->(var,vi)) (* pack var_invariant list together with variable-inforamtion for seemless handling by get_exprs_vi *)
-                            in let snd l =List.map (fun (_,rest)->rest) l (* unpack var_invariant list from seemless handling by get_exprs_vi, l is required to allow full polymorphism *)
-                            in let (subExprs,subViUsed,subViFiltered) = get_exprs_vi (pack subVis) [] []
-                            in let subSucceded = (List.length subViFiltered)=0 (* none filtered because of failure ⇒ ok *)
-                            in if subSucceded then
-                              let expr=merge_exprs subExprs (Fb LOr)
-                              in let _vis : var_invariant list = List.concat (snd subViUsed) (* todo : this double-unpack is unneccessary, reason is that get_exprs_vi should actually handle filtered and used vis and not invariants *)
-                              in let _values : ExternTypes.value list = ((snd:(variable*value) list -> value list) (_vis:ExternTypes.var_invariant list) : ExternTypes.value list)
-                              in let used =(inv_loc,[(var,Or(_values))])::viUsed
-                              in begin match expr with
-                                | Some expr -> (List.rev (expr::(List.rev exprsFollowing)),used,viFiltered)
-                                | None -> (exprsFollowing,used,viFiltered)
-                              end
-                            else
-                              (exprsFollowing,viUsed,(inv_loc,[(var,value)])::viFiltered)
-                          | _ -> begin
-                              Printf.printf "ERROR: Unsupported external type\n";
-                              get_exprs_vi vis used_invariants ((inv_loc,[(var,value)])::filtered_invariants)
-                            end
-                      end
-                      | None -> begin
-                          (*Printf.printf "filtered\n";*)
-                          get_exprs_vi vis used_invariants ((inv_loc,[(var,value)])::filtered_invariants)
+          (* create list of expressions from var_invariants. tail-recursive *)
+          let rec get_exprs_vi var_invariants exprsAlreadyCreated used_vis filtered_vis : (Cil.exp list * var_invariant list * var_invariant list ) =
+            match var_invariants with
+            | (var,value)::vis -> begin
+              (* Printf.printf "get_exprs_vi of\n%s\n" ( Pretty.sprint ~width:80 ( d_var_invariant (var,value) ) );*)
+              (* find out if valid variable *)
+              match get_cil_var var with
+                | Some cil_var -> begin
+                    match value with
+                    (* interval special case : single value *)
+                    | Interval (min,max) when min=max ->
+                        let expr =
+                          ( Formatcil.cExp
+                            "%v:var == %d:val"
+                            [
+                              ("var",Fv cil_var);
+                              ("val",Fd(min)); (* todo: check if var type matches cil_var.vtype, use kinteger and %e *)
+                            ]
+                          )
+                        in get_exprs_vi vis (expr::exprsAlreadyCreated) ((var,value)::used_vis) filtered_vis
+                    (* interval with min<>max *)
+                    | Interval (min,max) ->
+                      let createExpr min max =
+                        ( Formatcil.cExp
+                          "( %v:var >= %d:min ) %b:and ( %v:var <= %d:max )"
+                          [
+                            ("var",Fv cil_var);
+                            ("min",Fd(min)); (* todo: check if var type matches cil_var.vtype, use kinteger and %e *)
+                            ("and",Fb LAnd);
+                            ("max",Fd(max)); (* todo: check if var type matches cil_var.vtype, use kinteger and %e *)
+                          ]
+                        )
+                      in let expr =
+                        if min<max then
+                          createExpr min max
+                        else begin
+                          Printf.printf "WARNING: External interval seems to be [max,min] instead of [min,max]. We don't like that and reverse it!\n";
+                          Printf.printf "         If you want to state that an integer variable does not have a value, then Goblint will not consider this.\n";
+                          createExpr max min
                         end
-                  end
-                  | [] ->  ([],used_invariants,filtered_invariants)
-                  (* end get_exprs_vi *)
-                in get_exprs_vi var_invariants used_invariants filtered_invariants
+                      in get_exprs_vi vis (expr::exprsAlreadyCreated) ((var,value)::used_vis) filtered_vis
+                    | Pointer (bases,min,max) ->
+                        let rec exprs_for_bases bases agg : Cil.exp list = match bases with
+                          | base::bs -> (
+                              match base with 
+                              | Null ->
+                                let expr =
+                                  Formatcil.cExp
+                                    "%v:var = NULL"
+                                    [
+                                      ("var",Fv cil_var);
+                                    ]
+                                 in exprs_for_bases bs (expr::agg)
+                              | Variable base_var -> begin
+                                  match get_cil_var base_var with
+                                  | Some cil_base_var ->
+                                    let expr = 
+                                      Formatcil.cExp
+                                        "( %v:var >= ( %v:base_var + %d:min ) ) %b:and ( %v:var <= ( %v:base_var + %d:max ) )"
+                                        [
+                                          ("var",Fv cil_var);
+                                          ("base_var",Fv cil_base_var);
+                                          ("min",Fd(min)); (* todo: check if var type matches cil_var.vtype, use kinteger and %e *)
+                                          ("and",Fb LAnd);
+                                          ("max",Fd(max)); (* todo: check if var type matches cil_var.vtype, use kinteger and %e *)
+                                        ]
+                                     in exprs_for_bases bs (expr::agg)
+                                   | None -> [] (* if one pointer-var failes, we can not or it together with the others, we have to ignore the whole var_invariant *)
+                                 end
+                              | Invalid -> [] (* todo : invalid means what exactly? we know nothing? *)
+                            )
+                          | [] -> agg
+                        in begin
+                          match ( merge_exprs (exprs_for_bases bases []) (Fb LOr) ) with
+                          | Some expr -> get_exprs_vi vis (expr::exprsAlreadyCreated) ((var,value)::used_vis) filtered_vis
+                          | None      -> get_exprs_vi vis exprsAlreadyCreated used_vis ((var,value)::filtered_vis)
+                        end
+                    | Or subValues ->
+                      let subVis = List.map (fun vi->(var,vi)) subValues (* pack value list together with variable-inforamtion for seemless handling by get_exprs_vi *)
+                      in let (subExprs,subViUsed,subViFiltered) = get_exprs_vi subVis [] [] []
+                      in if (List.length subViFiltered)=0 then (* no failure ⇒ none filtered ⇒ we create the full or-expr *)
+                        let expr=merge_exprs subExprs (Fb LOr)
+                        in match expr with
+                          | Some expr -> get_exprs_vi vis (expr::exprsAlreadyCreated) ((var,value)::used_vis) filtered_vis
+                          | None ->
+                            Printf.printf "ERROR: Internal error. No expr created from or-value though no var_invariants filtered!\n";
+                            get_exprs_vi vis exprsAlreadyCreated used_vis ((var,value)::filtered_vis)
+                      else
+                        get_exprs_vi vis exprsAlreadyCreated used_vis ((var,value)::filtered_vis)
+                    | _ -> begin
+                        Printf.printf "ERROR: Internal error. External manipulator does not know what you gave him. Plz look into source.\n";
+                        get_exprs_vi vis exprsAlreadyCreated used_vis ((var,value)::filtered_vis)
+                      end
+                end
+                (* no valid variable in var_invariant ⇒ filter vi out *)
+                | None -> get_exprs_vi vis exprsAlreadyCreated used_vis ((var,value)::filtered_vis)
+            end
+            | [] ->  (exprsAlreadyCreated,used_vis,filtered_vis)
+          (* create expressions from list of invariants and also return used and unused invariants (which have been/have not been translated to expressions for some reason). tail-recursive *)
+          in let rec get_exprs invariants exprsAlreadyCreated used_invariants filtered_invariants : (Cil.exp list * invariant list * invariant list ) =
+            match invariants with
+              | (loc,var_invariants)::invs -> begin
+                let (addExprs,addUsedVis,addFilteredVis) = get_exprs_vi var_invariants [] [] []
+                in get_exprs invs (addExprs@exprsAlreadyCreated) ((loc,addUsedVis)::used_invariants) ((loc,addFilteredVis)::filtered_invariants)
               end
-              | [] ->  ([],used_invariants,filtered_invariants)
-              (* end get_exprs *)
-          in let (exprsCreated,used_invariants,filtered_invariants) = get_exprs invariants [] []
+              | [] ->  (exprsAlreadyCreated,used_invariants,filtered_invariants)
+          in let (exprsCreated,used_invariants,filtered_invariants) = get_exprs invariants [] [] []
           in begin
             begin
+              (*if (get_bool "dbg.verbose") then Printf.printf "exprs created : %s\n" ( Pretty.sprint ~width:80 ( Pretty.docList (d_exp ()) () exprsCreated ) );*)
               match merge_exprs exprsCreated (Fb LAnd) with
               | None -> ()
               | Some e -> begin
@@ -200,7 +191,7 @@ module M1 : Manipulator = struct
           end
         end
         (* no liveset? then we don't care about the filtered stuff *)
-        | None -> fun _ _ -> begin
+        | None -> begin
             Printf.printf "ERROR: Missing liveset information!\n";
             []
           end

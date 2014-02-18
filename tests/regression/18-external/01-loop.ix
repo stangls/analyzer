@@ -1,7 +1,9 @@
 <ix version="1.0">
+
+  <!-- inside loop -->
   <invariant>
     <location>
-      <line>9</line>
+      <line>13</line>
       <column>5</column>
     </location>
     <variable>
@@ -13,9 +15,11 @@
       </interval>
     </variable>
   </invariant>
+
+  <!-- after loop -->
   <invariant>
     <location>
-      <line>13</line>
+      <line>17</line>
       <column>3</column>
     </location>
     <variable>
@@ -27,4 +31,20 @@
       </interval>
     </variable>
   </invariant>
+
+  <invariant>
+    <location>
+      <line>18</line>
+      <column>3</column>
+    </location>
+    <variable>
+      <name>k</name>
+      <type>signed int</type>
+      <interval>
+         <lower-bound>5</lower-bound>
+         <upper-bound>5</upper-bound>
+      </interval>
+    </variable>
+  </invariant>
+
 </ix>

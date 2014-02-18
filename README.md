@@ -41,11 +41,12 @@ cd analyzer
 ./make.sh
 ```
 
-Run goblint via:
+Run goblint
+-----------
 ```
 ./goblint
 ```
-or the full testing suite via:
+or run the full testing suite via:
 ```
 scripts/update_suite.rb
 ```
