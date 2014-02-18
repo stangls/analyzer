@@ -23,7 +23,7 @@ type value =
   | ArrayField of int * string * value list
     (* bases, intervalMin, intervalMax *)
   | Pointer of pointer_base list * int * int
-  (* Basetype.Variables *)
+  | Or of value list
 
 type location =
     (* file, line, column *)
@@ -59,6 +59,9 @@ let rec d_value (v:value) :doc = match v with
     text "min    : " ++ num min ++ text "," ++ break ++
     text "max    : " ++ num max ++ text "," ++ break
   ))++text ")"
+| Or vs -> text "Or ("++break++(d_i (
+    List.fold_left (fun s v -> s++d_value v++break) nil vs
+  ))++text " )"
 let d_location (l:location) :doc = match l with
 | Position (file,line,col) -> text "Position ("++break++(d_i (
     text "file   : " ++ text file ++ text "," ++ break ++
@@ -115,11 +118,26 @@ sig
     * all remaining invariants which are not in that range
   *)
   val filter_func : t -> string -> string -> t*t
+  (*
+    group values of var_invariant instances by variable name using Or
+    assumes the invariants are already grouped by location. (* todo: write function to group by location *)
+  *)
+  val group_by_variables : t -> t
 end
 
 module Helper : sig
   val num_var_invariants : invariant list -> int
+  val num_var_values : invariant list -> int
 end = struct
-  let num_var_invariants' cnt (_,vis) = cnt+(List.length vis)
+  let num_var_invariants' cnt (_,vis:location*var_invariant list) = cnt+(List.length vis)
   let num_var_invariants invariants = List.fold_left num_var_invariants' 0 invariants
+
+  let rec num_var_values''' cnt (value:value) = match value with
+    | Or(subValues) -> List.fold_left num_var_values''' cnt subValues
+    | _ -> cnt+1
+  let rec num_var_values'' cnt (vis:var_invariant list) = match vis with
+    | (var,values)::vis -> num_var_values'' ( num_var_values''' cnt values ) vis
+    | [] -> cnt
+  let num_var_values' cnt (_,vis:location*var_invariant list) = num_var_values'' cnt vis
+  let num_var_values invariants = List.fold_left num_var_values' 0 invariants
 end

@@ -123,8 +123,8 @@ module M1 : Manipulator = struct
                                             ("var",Fv cil_var);
                                           ]
                                        in exprs_for_bases bs (expr::agg)
-                                    | Variable base_var ->
-                                      let agg'=match get_cil_var base_var with
+                                    | Variable base_var -> begin
+                                        match get_cil_var base_var with
                                         | Some cil_base_var ->
                                           let expr = 
                                             Formatcil.cExp
@@ -136,9 +136,9 @@ module M1 : Manipulator = struct
                                                 ("and",Fb LAnd);
                                                 ("max",Fd(max)); (* todo: check if var type matches cil_var.vtype, use kinteger and %e *)
                                               ]
-                                           in expr::agg
-                                         | None -> agg
-                                       in exprs_for_bases bs agg'
+                                           in exprs_for_bases bs (expr::agg)
+                                         | None -> [] (* if one pointer-var failes, we can not or it together with the others, we have to ignore the whole var_invariant *)
+                                       end
                                     | Invalid -> [] (* todo : invalid means what exactly? we know nothing? *)
                                   )
                                 | [] -> agg
@@ -152,8 +152,26 @@ module M1 : Manipulator = struct
                                     get_exprs_vi vis used_invariants ((inv_loc,[(var,value)])::filtered_invariants)
                                   end
                               end
+                          (* Or *)
+                          | Or subVis ->
+                            let (exprsFollowing,viUsed,viFiltered)=get_exprs_vi vis used_invariants filtered_invariants
+                            in let pack=List.map (fun vi->(var,vi)) (* pack var_invariant list together with variable-inforamtion for seemless handling by get_exprs_vi *)
+                            in let snd l =List.map (fun (_,rest)->rest) l (* unpack var_invariant list from seemless handling by get_exprs_vi, l is required to allow full polymorphism *)
+                            in let (subExprs,subViUsed,subViFiltered) = get_exprs_vi (pack subVis) [] []
+                            in let subSucceded = (List.length subViFiltered)=0 (* none filtered because of failure ⇒ ok *)
+                            in if subSucceded then
+                              let expr=merge_exprs subExprs (Fb LOr)
+                              in let _vis : var_invariant list = List.concat (snd subViUsed) (* todo : this double-unpack is unneccessary, reason is that get_exprs_vi should actually handle filtered and used vis and not invariants *)
+                              in let _values : ExternTypes.value list = ((snd:(variable*value) list -> value list) (_vis:ExternTypes.var_invariant list) : ExternTypes.value list)
+                              in let used =(inv_loc,[(var,Or(_values))])::viUsed
+                              in begin match expr with
+                                | Some expr -> (List.rev (expr::(List.rev exprsFollowing)),used,viFiltered)
+                                | None -> (exprsFollowing,used,viFiltered)
+                              end
+                            else
+                              (exprsFollowing,viUsed,(inv_loc,[(var,value)])::viFiltered)
                           | _ -> begin
-                              Printf.printf "ERROR: Unsupported external type";
+                              Printf.printf "ERROR: Unsupported external type\n";
                               get_exprs_vi vis used_invariants ((inv_loc,[(var,value)])::filtered_invariants)
                             end
                       end
@@ -169,10 +187,14 @@ module M1 : Manipulator = struct
               | [] ->  ([],used_invariants,filtered_invariants)
               (* end get_exprs *)
           in let (exprsCreated,used_invariants,filtered_invariants) = get_exprs invariants [] []
-          in begin begin
+          in begin
+            begin
               match merge_exprs exprsCreated (Fb LAnd) with
               | None -> ()
-              | Some e -> exprs <- ((loc,e),used_invariants)::exprs
+              | Some e -> begin
+                  if (get_bool "dbg.verbose") then Printf.printf "expr created : %s\n" ( Pretty.sprint ~width:80 ( d_exp () e ) );
+                  exprs <- ((loc,e),used_invariants)::exprs
+                end
             end;
             filtered_invariants
           end
@@ -252,9 +274,11 @@ module M1 : Manipulator = struct
       visitCilFileSameGlobals ( visitor :> cilVisitor ) file;
       (* show invariants not mapped to cil-expressions *)
       let num_position_unmatched = Helper.num_var_invariants visitor#get_invs
-      and num_filtered = List.length (visitor#get_filtered_invs)
+      and num_v_position_unmatched = Helper.num_var_values visitor#get_invs
+      and num_filtered = Helper.num_var_invariants (visitor#get_filtered_invs)
+      and num_v_filtered = Helper.num_var_values (visitor#get_filtered_invs)
       in if num_position_unmatched>0 || num_filtered>0 then begin
-        Printf.printf "WARNING: %d invariants seem not related to code positions at all and %d could not be translated to cil expressions!\n" num_position_unmatched num_filtered;
+        Printf.printf "WARNING: %d invariants (%d values) seem not related to code positions at all and %d (%d values) could not be translated to cil expressions!\n" num_position_unmatched num_v_position_unmatched num_filtered num_v_filtered;
         if (get_bool "dbg.verbose") then begin Printf.printf "Not matching with code : \n%s\n" ( Pretty.sprint ~width:80 ( Pretty.docList d_invariant () (visitor#get_invs) ) );
           Printf.printf "Not translated : \n%s\n" ( Pretty.sprint ~width:80 ( Pretty.docList d_invariant () (visitor#get_filtered_invs) ) );
         end
@@ -262,5 +286,24 @@ module M1 : Manipulator = struct
       (* return result *)
       visitor#result
     end
+
+  let group_var_invariant_by_variables (vis:var_invariant list) : var_invariant list =
+    let group_vi_by_variables grpd (var,value) =
+      let rec add_var var value (processed:var_invariant list) (unprocessed:var_invariant list) :var_invariant list = match unprocessed with
+      | (var2,value2)::vis ->
+        if String.compare var.name var2.name = 0 then (* todo: use string hashes *)
+          match value2 with
+          | Or(vals) -> processed@[(var2,Or(value::vals))]@vis (* grouped with an existing Or-group. we are done *)
+          | _ -> processed@[(var2,Or [value;value2])]@vis (* grouped by creating a new Or-group. we are done *)
+        else
+          add_var var value ((var2,value2)::processed) vis (* ungrouped yet, check further. leave current element as is. *)
+      | [] -> (var,value)::processed (* grouped in a 1-item group (does not require or-group (yet) *)
+      in add_var var value [] grpd
+    in List.rev (List.fold_left group_vi_by_variables [] vis)
+
+  let group_by_variables invs =
+    let group_by_variables' grouped (loc,vis) =
+      (loc,group_var_invariant_by_variables vis) :: grouped
+    in List.rev (List.fold_left group_by_variables' [] invs)
 
 end
