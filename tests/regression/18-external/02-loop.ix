@@ -1,10 +1,9 @@
 <ix version="1.0">
 
   <!--
-    external information about the loop and it's variables:w
-    we supply information before the actual assertion, so that
-    each variable has it's own invariant.
-    please see also 02-loop.ix
+    compared to 01-loop.ix
+    we create more invariants at one location
+    to see how Goblint can handle this.
   -->
 
   <!-- inside loop -->
@@ -37,11 +36,19 @@
          <upper-bound>10</upper-bound>
       </interval>
     </variable>
+    <variable>
+      <name>j</name>
+      <type>signed int</type>
+      <interval>
+         <lower-bound>7</lower-bound>
+         <upper-bound>7</upper-bound>
+      </interval>
+    </variable>
   </invariant>
 
   <invariant>
     <location>
-      <line>18</line>
+      <line>17</line>
       <column>3</column>
     </location>
     <variable>
@@ -50,21 +57,6 @@
       <interval>
          <lower-bound>5</lower-bound>
          <upper-bound>5</upper-bound>
-      </interval>
-    </variable>
-  </invariant>
-
-  <invariant>
-    <location>
-      <line>19</line>
-      <column>3</column>
-    </location>
-    <variable>
-      <name>j</name>
-      <type>signed int</type>
-      <interval>
-         <lower-bound>7</lower-bound>
-         <upper-bound>7</upper-bound>
       </interval>
     </variable>
   </invariant>

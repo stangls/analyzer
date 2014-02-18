@@ -173,19 +173,26 @@ module M1 : Manipulator = struct
             match invariants with
               | (loc,var_invariants)::invs -> begin
                 let (addExprs,addUsedVis,addFilteredVis) = get_exprs_vi var_invariants [] [] []
-                in get_exprs invs (addExprs@exprsAlreadyCreated) ((loc,addUsedVis)::used_invariants) ((loc,addFilteredVis)::filtered_invariants)
+                in get_exprs invs (addExprs@exprsAlreadyCreated) ((List.map (fun vi->(loc,[vi])) addUsedVis)@used_invariants) ((loc,addFilteredVis)::filtered_invariants)
               end
               | [] ->  (exprsAlreadyCreated,used_invariants,filtered_invariants)
           in let (exprsCreated,used_invariants,filtered_invariants) = get_exprs invariants [] [] []
           in begin
             begin
-              (*if (get_bool "dbg.verbose") then Printf.printf "exprs created : %s\n" ( Pretty.sprint ~width:80 ( Pretty.docList (d_exp ()) () exprsCreated ) );*)
-              match merge_exprs exprsCreated (Fb LAnd) with
-              | None -> ()
-              | Some e -> begin
-                  if (get_bool "dbg.verbose") then Printf.printf "expr created : %s\n" ( Pretty.sprint ~width:80 ( d_exp () e ) );
-                  exprs <- ((loc,e),used_invariants)::exprs
-                end
+              if true then begin
+                if (get_bool "dbg.verbose" && (List.length exprsCreated) > 0) then Printf.printf "exprs created : %s\n" ( Pretty.sprint ~width:80 ( Pretty.docList (d_exp ()) () exprsCreated ) );
+                let rec addExprsAndUI exprs usedInvariants exprsAgg = match exprs,usedInvariants with
+                | e::es,ui::uis -> addExprsAndUI es uis (((loc,e),[ui])::exprsAgg)
+                | [],[] -> exprsAgg
+                | es,uis -> Printf.printf "ERROR: Internal error. There are %d exprs and %d used invariants. Look at the source.\n" (List.length es) (List.length uis); exprsAgg
+                in exprs <- addExprsAndUI exprsCreated used_invariants exprs
+              end else
+                match merge_exprs exprsCreated (Fb LAnd) with
+                | None -> ()
+                | Some e -> begin
+                    if (get_bool "dbg.verbose") then Printf.printf "expr created : %s\n" ( Pretty.sprint ~width:80 ( d_exp () e ) );
+                    exprs <- ((loc,e),used_invariants)::exprs
+                  end
             end;
             filtered_invariants
           end

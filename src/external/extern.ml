@@ -87,7 +87,7 @@ let init merged_AST cFileNames =
 let assert_fun () = !assert_fun
 
 (*
-  retrieve pre-statement invariant for Cil.location loc in the form of a Cil.expr
+  retrieve pre-statement invariants for Cil.location loc in the form of a Cil.expr .
   call [init] first to initialize invariants for given files.
 *)
 let get_loc_inv_expr (loc:Cil.location) : Cil.exp list =
