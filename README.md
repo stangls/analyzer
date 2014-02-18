@@ -17,15 +17,21 @@ Get access to a repository
 * on Ubuntu : https://launchpad.net/~avsm/+archive/ocaml41+opam11
 
 Install required packages:
-  apt-get install ocaml git
+```
+apt-get install ocaml git
+```
 
 Next install OPAM:
-  wget http://www.ocamlpro.com/pub/opam_installer.sh
-  sh ./opam_installer.sh /usr/local/bin
+```
+wget http://www.ocamlpro.com/pub/opam_installer.sh
+sh ./opam_installer.sh /usr/local/bin
+```
 
 And required ocaml packages:
-  opam update
-  opam install ocamlfind camomile batteries xml-light cil
+```
+opam update
+opam install ocamlfind camomile batteries xml-light cil
+```
 
 
 Then clone the repository from this url and compile:
