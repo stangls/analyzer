@@ -29,8 +29,6 @@ struct
   let fileRegexp = Str.regexp "/[^/]*$"
   let noValidVarNameChar = Str.regexp "[^A-Za-z0-9_].*$"
 
-  (* todo: usages of get_element and get_elements should check for Not_found exception *)
-
   let get_element tagName xml =
     let selector = function
       | Element (tn,_,_) -> tn=tagName
@@ -84,21 +82,26 @@ struct
                 let nodeTag=tag node
                 in if nodeTag="name" then name:=Some (clean_var_name (element_value node))
                 else if nodeTag="interval" then
-                  value:=Some (Interval(
-                    int_of_string (element_value (get_element "lower-bound" node)),
-                    int_of_string (element_value (get_element "upper-bound" node))
-                  ))
+                  try
+                    value:=Some (Interval(
+                      int_of_string (element_value (get_element "lower-bound" node)),
+                      int_of_string (element_value (get_element "upper-bound" node))
+                    ))
+                  with Not_found -> ()
                 else if nodeTag="pointer" then
-                  let interval=get_element "interval" node
-                  in let mk_pointer_base element = match (element_value element) with
-                    | "NULL" -> Null
-                    | "INVALID" -> Invalid
-                    | x -> Variable {name=clean_var_name x}
-                  in value:=Some (Pointer(
-                    List.map mk_pointer_base (get_elements "base" node),
-                    int_of_string (element_value (get_element "lower-bound" interval)),
-                    int_of_string (element_value (get_element "upper-bound" interval))
-                  ))
+                  try
+                    let interval=get_element "interval" node
+                    in let mk_pointer_base element = match (element_value element) with
+                      | "NULL" -> Null
+                      | "INVALID" -> Invalid
+                      | x -> Variable {name=clean_var_name x}
+                    in
+                      value:=Some (Pointer(
+                        List.map mk_pointer_base (get_elements "base" node),
+                        int_of_string (element_value (get_element "lower-bound" interval)),
+                        int_of_string (element_value (get_element "upper-bound" interval))
+                      ))
+                  with Not_found -> ()
               in begin
                 iter convert_variable node;
                 match (!name,!value) with
@@ -116,7 +119,7 @@ struct
               var_invariants
           in let var_invariants=fold convert_var_invariants [] node
           in match !loc with
-          | None -> Printf.printf "WARNING: Invariant missing location!" ; invs
+          | None -> Printf.printf "WARNING: Invariant missing location!\n" ; invs
           | Some loc -> (loc,var_invariants)::invs
         end else
           invs

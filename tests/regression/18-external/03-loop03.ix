@@ -1,0 +1,11 @@
+<ix version="1.0">
+
+  <!--
+    let's take a look at "changing" assertions
+    inside a loop
+  -->
+
+  <invariant>
+  </invariant>
+
+</ix>

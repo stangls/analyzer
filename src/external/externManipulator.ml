@@ -128,7 +128,7 @@ module M1 : Manipulator = struct
                                   | Some cil_base_var ->
                                     let expr = 
                                       Formatcil.cExp
-                                        "( %v:var >= ( %v:base_var + %d:min ) ) %b:and ( %v:var <= ( %v:base_var + %d:max ) )"
+                                        "( %v:var >= ( (& %v:base_var) + %d:min ) ) %b:and ( %v:var <= ( ( & %v:base_var ) + %d:max ) )"
                                         [
                                           ("var",Fv cil_var);
                                           ("base_var",Fv cil_base_var);

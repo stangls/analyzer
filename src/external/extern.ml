@@ -11,6 +11,8 @@ module IF = IxFileInvariantsReader (*DummyInvariantsReader*)
 (* specify modifier *)
 module M = M1
 
+exception InternalError
+
 (* storage for converted variants *)
 let loaded_invariants = ref ([]:cil_invariant list)
 (* type of assertion-functions *)
@@ -22,7 +24,7 @@ let intern_assert = makeGlobalVar "goblint's internal assert function" assert_ty
 let use_intern_assert = true 
 (* the actual assertion function used for injection of invariants *)
 let assert_fun = ref None
-(* group the invariants by var-name with Or? *)
+(* group the read invariants by var-name with Or? *)
 let group_invariants = true
 
 (*
@@ -95,4 +97,11 @@ let get_loc_inv_expr (loc:Cil.location) : Cil.exp list =
   in let get_expr (loc',expr) = expr
   in List.map get_expr (List.filter filter_fun !loaded_invariants)
 
+(*
+  retrieve assertion expression and list of expressions to assert at location loc .
+*)
+let assertion_exprs (loc:Cil.location) : (Cil.exp * Cil.exp list) =
+  match assert_fun () with
+  | Some assert_var_info -> Cil.Lval(Cil.Var assert_var_info,Cil.NoOffset) , get_loc_inv_expr loc
+  | None -> raise InternalError
 

@@ -259,25 +259,20 @@ struct
     if get_bool "ext_read" then begin
       (* determine expression and assertion-function and execute (procedure call) *)
       (* todo: here? why here? *)
-      match Extern.assert_fun () with
-        | Some assert_var_info ->
-          let assert_fun_exp = Cil.Lval(Cil.Var assert_var_info,Cil.NoOffset)
-          (* list of extern invariant expressions *)
-          in let expr_list = Extern.get_loc_inv_expr (getLoc u)
-          (* modifiable get-local-function *)
-          in let getl_mod (modified_state:S.D.t) (u',c') = 
-            if (u==u' && c==c') then modified_state (* todo: check if physical equality is good here *)
-            else getl (u',c')
-          (* recompute a given state [s] according to an invariant-list [expr_list] by applying a modified get-local-function *)
-          in let rec change_state expr_list (s:S.D.t):S.D.t = match expr_list with
-            | e::es  ->
-              let new_s = tf_proc None assert_fun_exp [e] (u,c) u (getl_mod s) sidel getg sideg
-              in change_state es new_s
-            | []    ->  s
-          (* modified get-local-function for actual tf *)
-          in let getl' = getl_mod ( change_state expr_list (getl (u,c)) )
-          in tf (v,c) (e,u) getl' sidel getg sideg
-        | _ -> tf (v,c) (e,u) getl sidel getg sideg
+      let (assert_fun_exp,expr_list) = Extern.assertion_exprs (getLoc u)
+      (* modifiable get-local-function *)
+      and getl_mod (modified_state:S.D.t) (u',c') = 
+        if (u==u' && c==c') then modified_state (* todo: check if physical equality is good here *)
+        else getl (u',c')
+      (* recompute a given state [s] according to an invariant-list [expr_list] by applying a modified get-local-function *)
+      in let rec change_state expr_list (s:S.D.t):S.D.t = match expr_list with
+        | e::es  ->
+          let new_s = tf_proc None assert_fun_exp [e] (u,c) u (getl_mod s) sidel getg sideg
+          in change_state es new_s
+        | []    ->  s
+      (* modified get-local-function for actual tf *)
+      in let getl' = getl_mod ( change_state expr_list (getl (u,c)) )
+      in tf (v,c) (e,u) getl' sidel getg sideg
     end else
       tf (v,c) (e,u) getl sidel getg sideg
     
