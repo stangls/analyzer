@@ -23,7 +23,10 @@ type value =
   | ArrayField of int * string * value list
     (* bases, intervalMin, intervalMax *)
   | Pointer of pointer_base list * int * int
+    (* used internally to define more complex values *)
   | Or of value list
+    (* we might use this to express, that the datatype is not suitable with this data-type *)
+  | Undefined
 
 type location =
     (* file, line, column *)
@@ -62,6 +65,7 @@ let rec d_value (v:value) :doc = match v with
 | Or vs -> text "Or ("++break++(d_i (
     List.fold_left (fun s v -> s++d_value v++break) nil vs
   ))++text " )"
+| Undefined -> text "Undefined"
 let d_location (l:location) :doc = match l with
 | Position (file,line,col) -> text "Position ("++break++(d_i (
     text "file   : " ++ text file ++ text "," ++ break ++
