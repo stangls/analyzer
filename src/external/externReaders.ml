@@ -41,7 +41,10 @@ struct
     in List.filter selector (children xml)
   let element_value xml = pcdata ( List.hd (children xml) )
 
-  let clean_var_name vn = try Str.string_before vn ( Str.search_forward noValidVarNameChar vn 0 ) with Not_found -> vn
+  (* we do not clean variable-names anymore, invalid names are actually invalid *)
+  let clean_var_name vn =
+    (*try Str.string_before vn ( Str.search_forward noValidVarNameChar vn 0 ) with Not_found -> vn*)
+    vn
 
   exception No_location
   let of_xml_file fn cfn =
