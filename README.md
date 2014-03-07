@@ -1,48 +1,48 @@
-analyzer
-========
+[![Stories in Ready](https://badge.waffle.io/goblint/analyzer.png?label=ready&title=Ready)](https://waffle.io/goblint/analyzer)
+[![Build status](https://travis-ci.org/goblint/analyzer.png)](https://travis-ci.org/goblint/analyzer)
+[gitter](https://gitter.im/goblint)
+# goblint
 
-A fork of the goblint static analysis framework with an interface to external information.
+Setup
+-----
 
-installation under debian-like linux distros
---------------------------------------------
+Install Ocaml 4.
+* ubuntu : https://launchpad.net/~avsm/+archive/ocaml41+opam11
+* debian jessie ( https://packages.debian.org/jessie/ocaml ) 
+* debian wheezy: testing
 
-This installation routine was successfully tested on
-* Ubuntu (LUbuntu 12.10) with an additional repository for OCaml 4
-* Debian wheezy with testing - repositories for access to the OCaml 4 package
+Install [opam](https://github.com/OCamlPro/opam) [[Quick Install](http://opam.ocamlpro.com/doc/Quick_Install.html)], then do
 
-Install Ocaml 4.…
-Get access to a repository
-* testing on debian wheezy
-* use debian jessie ( https://packages.debian.org/jessie/ocaml ) 
-* on Ubuntu : https://launchpad.net/~avsm/+archive/ocaml41+opam11
+    opam install ocamlfind camomile batteries cil xml-light
 
-Install required packages:
-```
-apt-get install ocaml git
-```
+to install the latest versions of the dependencies for the current user.
+After that you can build goblint:
 
-Next install OPAM:
-```
-wget http://www.ocamlpro.com/pub/opam_installer.sh
-sh ./opam_installer.sh /usr/local/bin
-```
+    git clone https://github.com/goblint/analyzer.git
+    cd analyzer
+    make
 
-And required ocaml packages:
-```
-opam update
-opam install ocamlfind camomile batteries xml-light cil
-```
+If something goes wrong, take a look at [travis-ci.sh](scripts/travis-ci.sh) for an example setup or try the versions listed in [INSTALL](INSTALL).
 
+Alternatively you can use your system's package manager to install the dependencies globally or use [install_script.sh](scripts/install_script.sh) to build everything from source without affecting any existing OCaml installation.
 
-Then clone the repository from this url and compile:
-```
-git clone $thisurl$
-cd analyzer
-./make.sh
-```
+A ready-to-use virtual machine can be started using [Vagrant](http://www.vagrantup.com/):
+
+    vagrant up
+    vagrant ssh
+    sudo su -
+    cd analyzer
+
+In order to setup the web frontend do
+
+    git submodule update --init --recursive
+    cd webapp
+
+Then follow the instructions in its [README](https://github.com/vogler/goblint-webapp).
 
 Run goblint
 -----------
+
 ```
 ./goblint
 ```
