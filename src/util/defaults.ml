@@ -75,7 +75,7 @@ let _ =
   reg Std "solverdiffs"     "false"        "Print out solver differences.";
   reg Std "allfuns"         "false"        "Analyzes all the functions (not just beginning from main).";
   reg Std "nonstatic"       "false"        "Analyzes all non-static functions.";
-  reg Std "colors"          "false"        "Colored output."
+  reg Std "colors"          "false"        "Colored output.";
   reg Std "ext_readFile"    "''"           "path to XML file listing external invariants.";
   reg Std "ext_read"        "true"         "process external invariants."
                                                

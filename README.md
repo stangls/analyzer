@@ -48,5 +48,5 @@ Run goblint
 ```
 or run the full testing suite via:
 ```
-scripts/update_suite.rb
+scripts/update_suite.rb group -file
 ```
