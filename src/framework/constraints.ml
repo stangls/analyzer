@@ -260,35 +260,32 @@ struct
       | SelfLoop       -> tf_loop 
     end getl sidel getg sideg d
 
-  (* inject assertions for invariants by substituting state of variable (u,c) with modified get-local-function *)
-  let tf (v,c) (e,u) getl sidel getg sideg =
-  let tf getl sidel getg sideg v c u edge d =
+  (*
+    inject assertions for invariants by substituting state d of variable (u,c) with a new one d',
+    created by execution of assertion-effects.
+    the assertions come from the Extern module in the form of Cil expressions.
+  *)
+  let tf getl sidel getg sideg edge d loc =
     if get_bool "ext_read" then begin
-      (* determine expression and assertion-function and execute (procedure call) *)
-      (* todo: here? why here? *)
-      let (assert_fun_exp,expr_list) = Extern.assertion_exprs (getLoc u)
-      (* modifiable get-local-function *)
-      and getl_mod (modified_state:S.D.t) (u',c') = 
-        if (u==u' && c==c') then modified_state (* todo: check if physical equality is good here *)
-        else getl (u',c')
+      (* determine expressions and assertion-function and execute (procedure call) *)
+      let (assert_fun_exp,expr_list) = Extern.assertion_exprs loc
       (* recompute a given state [s] according to an invariant-list [expr_list] by applying a modified get-local-function *)
       in let rec change_state expr_list (s:S.D.t):S.D.t = match expr_list with
         | e::es  ->
-          let new_s = tf_proc None assert_fun_exp [e] (u,c) u (getl_mod s) sidel getg sideg
+          let new_s = tf_proc None assert_fun_exp [e] getl sidel getg sideg s
           in change_state es new_s
         | []    ->  s
       (* modified get-local-function for actual tf *)
-      in let getl' = getl_mod ( change_state expr_list (getl (u,c)) )
-      in tf (v,c) (e,u) getl' sidel getg sideg
+      in tf getl sidel getg sideg edge ( change_state expr_list d )
     end else
-      tf (v,c) (e,u) getl sidel getg sideg
+      tf getl sidel getg sideg edge d
     
-  let tf getl sidel getg sideg v c u (_,edge) d (f,t) =
+  let tf getl sidel getg sideg (loc,edge) d (f,t) =
     let old_loc  = !Tracing.current_loc in
     let old_loc2 = !Tracing.next_loc in
     let _       = Tracing.current_loc := f in
     let _       = Tracing.next_loc := t in
-    let d       = tf getl sidel getg sideg v c u edge d in
+    let d       = tf getl sidel getg sideg edge d loc in
     let _       = Tracing.current_loc := old_loc in 
     let _       = Tracing.next_loc := old_loc2 in 
       d
@@ -296,7 +293,7 @@ struct
   let tf (v,c) (edges, u) getl sidel getg sideg = 
     let pval = getl (u,c) in
     let _, locs = List.fold_right (fun (f,e) (t,xs) -> f, (f,t)::xs) edges (getLoc v,[]) in
-    List.fold_left2 (|>) pval (List.map (tf getl sidel getg sideg v c u) edges) locs
+    List.fold_left2 (|>) pval (List.map (tf getl sidel getg sideg) edges) locs
     
   let tf (v,c) (e,u) getl sidel getg sideg =
     let old_node = !current_node in
