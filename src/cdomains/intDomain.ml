@@ -2570,6 +2570,10 @@ struct
   let pretty_diff () (x,y) = dprintf "%a instead of %a" pretty x pretty y
 
   let printXml f x = BatPrintf.fprintf f "<value>\n<data>\n%s\n</data>\n</value>\n" (short 800 x) 
-  let to_ext_value x = ExternTypes.Undefined (* todo *)
+
+  let to_ext_value x =
+    match minimal x,maximal x with
+    | Some l, Some r -> ExternTypes.Interval (l,r)
+    | _ -> ExternTypes.Undefined
 
 end
