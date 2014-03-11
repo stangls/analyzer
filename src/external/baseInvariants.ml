@@ -30,11 +30,11 @@ module S : (InvariantsCreationHelper with type t = BaseDomain.Dom.t) = struct
 
   (* create invariants within some HashTblInvariantsCreator *)
   let store (d:t) : unit =
-      let (cpa,flags) = d in begin
-        (* find the location for these new invariants *)
-        let loc = !Tracing.current_loc
-        in BaseDomain.CPA.iter (BIC.add baseInvariants loc) cpa
-      end
+    let (cpa,flags) = d in begin
+      (* find the location for these new invariants *)
+      let loc = !Tracing.next_loc
+      in BaseDomain.CPA.iter (BIC.add baseInvariants loc) cpa
+    end
 
   let get_invariants (_:unit) =
     BIC.retrieve baseInvariants
