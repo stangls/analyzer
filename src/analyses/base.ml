@@ -891,7 +891,11 @@ struct
     let init_var v = (AD.from_var v, init_value ctx.ask ctx.global ctx.local v.vtype) in
     (* Apply it to all the locals and then assign them all *)
     let inits = List.map init_var f.slocals in
-      set_many ctx.ask ctx.global ctx.local inits
+    let ret =  set_many ctx.ask ctx.global ctx.local inits
+    in
+      (* Before returning the result we do a side-effect: Create base-invariants *)
+      Extern.create_base_invariants ret;
+      ret
 
   let return ctx exp fundec =
     if fundec.svar.vname = "__goblint_dummy_init" then begin

@@ -86,7 +86,7 @@ module M1 : Manipulator = struct
                             "%v:var == %d:val"
                             [
                               ("var",Fv cil_var);
-                              ("val",Fd(min)); (* todo: check if var type matches cil_var.vtype, use kinteger and %e *)
+                              ("val",Fd(Int64.to_int min)); (* todo: check if var type matches cil_var.vtype, use kinteger and %e *)
                             ]
                           )
                         in get_exprs_vi vis (expr::exprsAlreadyCreated) ((var,value)::used_vis) filtered_vis
@@ -97,9 +97,9 @@ module M1 : Manipulator = struct
                           "( %v:var >= %d:min ) %b:and ( %v:var <= %d:max )"
                           [
                             ("var",Fv cil_var);
-                            ("min",Fd(min)); (* todo: check if var type matches cil_var.vtype, use kinteger and %e *)
+                            ("min",Fd(Int64.to_int min)); (* todo: check if var type matches cil_var.vtype, use kinteger and %e *)
                             ("and",Fb LAnd);
-                            ("max",Fd(max)); (* todo: check if var type matches cil_var.vtype, use kinteger and %e *)
+                            ("max",Fd(Int64.to_int max)); (* todo: check if var type matches cil_var.vtype, use kinteger and %e *)
                           ]
                         )
                       in let expr =
@@ -132,9 +132,9 @@ module M1 : Manipulator = struct
                                         [
                                           ("var",Fv cil_var);
                                           ("base_var",Fv cil_base_var);
-                                          ("min",Fd(min)); (* todo: check if var type matches cil_var.vtype, use kinteger and %e *)
+                                          ("min",Fd(Int64.to_int min)); (* todo: check if var type matches cil_var.vtype, use kinteger and %e *)
                                           ("and",Fb LAnd);
-                                          ("max",Fd(max)); (* todo: check if var type matches cil_var.vtype, use kinteger and %e *)
+                                          ("max",Fd(Int64.to_int max)); (* todo: check if var type matches cil_var.vtype, use kinteger and %e *)
                                         ]
                                      in exprs_for_bases bs (expr::agg)
                                    | None -> [] (* if one pointer-var failes, we can not or it together with the others, we have to ignore the whole var_invariant *)

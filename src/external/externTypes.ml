@@ -16,13 +16,13 @@ type pointer_base =
 
 type value =
     (* min, max *)
-  | Interval of int * int
+  | Interval of int64 * int64
     (* name, type, nested *)
   | Field of string * string * value list
     (* offset, type, nested *)
-  | ArrayField of int * string * value list
+  | ArrayField of int64 * string * value list
     (* bases, intervalMin, intervalMax *)
-  | Pointer of pointer_base list * int * int
+  | Pointer of pointer_base list * int64 * int64
     (* used internally to define more complex values *)
   | Or of value list
     (* we might use this to express, that the datatype is not suitable with this data-type *)
@@ -46,21 +46,21 @@ let d_pointer_base (pb:pointer_base) :doc = match pb with
 | Invalid -> text "Invalid"
 | Variable v -> d_variable v
 let rec d_value (v:value) :doc = match v with
-| Interval (min,max) -> text "["++num min++text ", "++num max++text "]"
+| Interval (min,max) -> text "["++num64 min++text ", "++num64 max++text "]"
 | Field (name,typ,values) -> text "Field ("++break++(d_i (
     text "name   : " ++ text name ++ text "," ++ break ++
     text "type   : " ++ text typ ++ text "," ++ break ++
     text "values : " ++ docList d_value () values ++ break
   ))++text ")"
 | ArrayField (offset,typ,values) -> text "ArrayField ("++break++(d_i (
-    text "offset : " ++ num offset ++ text "," ++ break ++
+    text "offset : " ++ num64 offset ++ text "," ++ break ++
     text "type   : " ++ text typ ++ text "," ++ break ++
     text "nested : " ++ docList d_value () values ++ break
   ))++text ")"
 | Pointer (pbases,min,max) -> text "Pointer ("++break++(d_i (
     text "bases  : " ++ docList d_pointer_base () pbases ++ text "," ++ break ++
-    text "min    : " ++ num min ++ text "," ++ break ++
-    text "max    : " ++ num max ++ text "," ++ break
+    text "min    : " ++ num64 min ++ text "," ++ break ++
+    text "max    : " ++ num64 max ++ text "," ++ break
   ))++text ")"
 | Or vs -> text "Or ("++break++(d_i (
     List.fold_left (fun s v -> s++d_value v++break) nil vs
@@ -129,9 +129,11 @@ sig
   val group_by_variables : t -> t
 end
 
+(* helper for invariants *)
 module Helper : sig
   val num_var_invariants : invariant list -> int
   val num_var_values : invariant list -> int
+  val filter_undefined_var_invariants : invariant list -> int*(invariant list)
 end = struct
   let num_var_invariants' cnt (_,vis:location*var_invariant list) = cnt+(List.length vis)
   let num_var_invariants invariants = List.fold_left num_var_invariants' 0 invariants
@@ -144,4 +146,90 @@ end = struct
     | [] -> cnt
   let num_var_values' cnt (_,vis:location*var_invariant list) = num_var_values'' cnt vis
   let num_var_values invariants = List.fold_left num_var_values' 0 invariants
+
+  let filter_undefined_var_invariants'' (num,vis) (var,value) =
+    match value with
+    | Undefined -> (num+1,vis)
+    | _ -> (num,(var,value)::vis)
+  let filter_undefined_var_invariants' (num,invs) (loc,vis) =
+    let (num',vis') = List.fold_left filter_undefined_var_invariants'' (num,[]) vis
+    in match vis' with
+    | [] -> (num',invs)
+    | _ -> (num',(loc,vis')::invs)
+  let filter_undefined_var_invariants invs = List.fold_left filter_undefined_var_invariants' (0,[]) invs
 end
+
+(* creator of invariants *)
+module type InvariantsCreator = sig
+  type t
+  type d
+  val create : unit -> t
+  (*
+    store a (maybe incomplete) invariant.
+    multiple invariants may be stored at the same location
+  *)
+  val add : t -> Cil.location -> Cil.varinfo -> d -> unit
+  (*
+    retrieve all invariants
+  *)
+  val retrieve : t -> invariant list
+end
+
+module type ValueDomainHandler = sig
+  type t
+  val merge : t -> t -> t
+  val to_value : t -> value
+end
+
+(*
+  creator of invariants (based on some domain d and a hashtable).
+  the idea is, that d can be merged for multiple calls of add with same location and same variable.
+*)
+module HashtblInvariantsCreator( VDM:ValueDomainHandler ) : (InvariantsCreator with type d=VDM.t) = struct
+
+  type t = ( ( Cil.location * Cil.varinfo ) , VDM.t ) Hashtbl.t
+  type d=VDM.t
+
+  let create _ = Hashtbl.create 100
+
+  (* add some invarant by merging d into the hashtable *)
+  let add tbl loc var value =
+    let newVal = 
+      try
+        let oldVal = Hashtbl.find tbl (loc,var)
+        in VDM.merge oldVal value
+      with Not_found -> value
+    in Hashtbl.replace tbl (loc,var) newVal
+
+  let retrieve tbl =
+    (* hashtable loc->(var,value) . we estimate roughly 5 invariants per location *)
+    let mappedToLocs = 
+      let tmp = Hashtbl.create ((Hashtbl.length tbl)/5)
+      in let toTmp ( loc, var ) value =
+        let newVal =
+          try
+            let oldVal = Hashtbl.find tmp loc
+            in (var,value)::oldVal
+          with Not_found -> [(var,value)]
+        in Hashtbl.replace tmp loc newVal
+      in Hashtbl.iter toTmp tbl; tmp
+    and toInvs loc varValList acc =
+      let varVal2varInv (var,value) =
+        ( { name=var.vname }, VDM.to_value value )
+      in 
+        (
+          Position( loc.file, loc.line, 0 ),
+          List.rev_map varVal2varInv varValList
+        )::acc
+    in Hashtbl.fold toInvs mappedToLocs []
+
+end
+
+module type InvariantsCreationHelper = sig
+  type t
+  (* create invariants from t *)
+  val store : t -> unit
+  (* retrieve actual invariants *)
+  val get_invariants : unit -> invariant list
+end
+

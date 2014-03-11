@@ -69,15 +69,16 @@ let init merged_AST cFileNames =
           end;
           cil_invariants @ agg
       | None            -> agg
+  in let create_exp var = Cil.Lval(Cil.Var var,Cil.NoOffset)
   in let filter_assert = function
     | GVarDecl(varinfo,_) when ( String.compare varinfo.vname "assert" = 0) && ( varinfo.vtype = assert_type ) ->
-      assert_fun:=Some varinfo; true
+      assert_fun:= Some (create_exp varinfo); true
     | _ -> false
   in begin
     if get_bool "ext_read" then
       loaded_invariants := List.fold_left (aggregate_cil_invariants IF.of_c_file) (aggregate_cil_invariants IF.of_file [] (get_string "ext_readFile")) cFileNames;
     if use_intern_assert then begin
-      assert_fun := Some (intern_assert)
+      assert_fun := Some (create_exp intern_assert)
     end else begin
       try
         ignore (List.find filter_assert merged_AST.globals)
@@ -86,7 +87,6 @@ let init merged_AST cFileNames =
     end
   end
 
-let assert_fun () = !assert_fun
 
 (*
   retrieve pre-statement invariants for Cil.location loc in the form of a Cil.expr .
@@ -101,7 +101,31 @@ let get_loc_inv_expr (loc:Cil.location) : Cil.exp list =
   retrieve assertion expression and list of expressions to assert at location loc .
 *)
 let assertion_exprs (loc:Cil.location) : (Cil.exp * Cil.exp list) =
-  match assert_fun () with
-  | Some assert_var_info -> Cil.Lval(Cil.Var assert_var_info,Cil.NoOffset) , get_loc_inv_expr loc
+  match !assert_fun with
+  | Some assert_fun_exp -> assert_fun_exp , get_loc_inv_expr loc
   | None -> raise InternalError
+
+
+(*
+  ================= invariant creation ======================
+  currently only supports base-domain.
+  stores invariants as lattices before writing them.
+*)
+
+module BI = BaseInvariants.S
+
+(*
+  create invariants from base-analysis state
+  if we are in the verifying stage
+*)
+let create_base_invariants d : unit =
+  if !Goblintutil.in_verifying_stage then BI.store d
+
+let write_invariants (_:unit) : unit =
+  let invs = BI.get_invariants ()
+  in let (numUndefined,invs) = Helper.filter_undefined_var_invariants invs
+  in
+    List.iter ( fun x -> Printf.printf "Possible invariant:\n%s\n" ( Pretty.sprint ~width:80 (d_invariant x) ) ) invs;
+    Printf.printf "%d undefined invariants have been filtered out.\n" numUndefined
+
 

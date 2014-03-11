@@ -11,7 +11,7 @@ struct
     Some [
       (
         Position (fn,6,0) , [
-          ( { name="x"; (*ctype="int";*) } , Interval(0,1) )
+          ( { name="x"; (*ctype="int";*) } , Interval(0L,1L) )
         ]
       )
     ]
@@ -87,8 +87,8 @@ struct
                 else if nodeTag="interval" then
                   try
                     value:=Some (Interval(
-                      int_of_string (element_value (get_element "lower-bound" node)),
-                      int_of_string (element_value (get_element "upper-bound" node))
+                      Int64.of_string (element_value (get_element "lower-bound" node)),
+                      Int64.of_string (element_value (get_element "upper-bound" node))
                     ))
                   with Not_found -> ()
                 else if nodeTag="pointer" then
@@ -101,8 +101,8 @@ struct
                     in
                       value:=Some (Pointer(
                         List.map mk_pointer_base (get_elements "base" node),
-                        int_of_string (element_value (get_element "lower-bound" interval)),
-                        int_of_string (element_value (get_element "upper-bound" interval))
+                        Int64.of_string (element_value (get_element "lower-bound" interval)),
+                        Int64.of_string (element_value (get_element "upper-bound" interval))
                       ))
                   with Not_found -> ()
               in begin

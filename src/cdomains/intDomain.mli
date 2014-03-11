@@ -94,6 +94,9 @@ sig
   (** {b Cast} *)
   val cast_to_width: t -> int -> t
   (** Cast interval/integer to type of the given width. *)
+
+  val to_ext_value : t -> ExternTypes.value
+  (* representation as something other tools can understand *)
 end
 (** The signature of integral value domains. They need to support all integer
   * operations that are allowed in C *)

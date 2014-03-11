@@ -53,6 +53,9 @@ sig
   val logor : t -> t -> t
 
   val cast_to_width : t -> int -> t
+
+  val to_ext_value : t -> ExternTypes.value
+
 end
 
 module Interval32 : S with type t = (int64 * int64) option =
@@ -277,6 +280,12 @@ struct
         if Int64.compare x2 y1 < 0 then of_bool true  
         else if Int64.compare y2 x1 <= 0 then of_bool false 
         else top ()
+
+  let to_ext_value x =
+    match x with
+      | None -> ExternTypes.Undefined
+      | Some (l,r) -> ExternTypes.Interval (l,r)
+
 end
 
 
@@ -355,6 +364,7 @@ struct
   let cast_to_width x _ = x
 
   let printXml f x = BatPrintf.fprintf f "<value>\n<data>\n%s\n</data>\n</value>\n" (short 800 x) 
+  let to_ext_value x = ExternTypes.Interval (x,x)
 end
 
 module FlatPureIntegers =
@@ -434,6 +444,7 @@ struct
   let logand = lift2 Base.logand
   let logor  = lift2 Base.logor
   let printXml f x = BatPrintf.fprintf f "<value>\n<data>\n%s\n</data>\n</value>\n" (short 800 x) 
+  let to_ext_value x = ExternTypes.Undefined (* todo *)
 end
 
 module Lift (Base: S) =
@@ -499,6 +510,7 @@ struct
   let logand = lift2 Base.logand
   let logor  = lift2 Base.logor
   let printXml f x = BatPrintf.fprintf f "<value>\n<data>\n%s\n</data>\n</value>\n" (short 800 x) 
+  let to_ext_value x = ExternTypes.Undefined (* todo *)
 end
 
 module Flattened = Flat (Integers) 
@@ -732,6 +744,7 @@ struct
   let logor  = lift2 Integers.logor
   let lognot = eq (of_int 0L) 
   let printXml f x = BatPrintf.fprintf f "<value>\n<data>\n%s\n</data>\n</value>\n" (short 800 x) 
+  let to_ext_value x = ExternTypes.Undefined (* todo *)
 end
 
 module OverflowInt64 =
@@ -1157,6 +1170,8 @@ module CircInterval : S with type t = CBigInt.t interval =
 
     let narrow = wrap_debug2 "narrow" narrow'
 
+    let to_ext_value x = ExternTypes.Undefined (* todo *)
+
   end
 
 module Interval : S with type t = InfInt.t * InfInt.t =
@@ -1402,6 +1417,13 @@ struct
   let mul x y = try mul x y with OverflowInt64.Overflow _ -> top ()
   *)
   let cast_to_width x _ = x
+
+  let to_ext_value x =
+    match x with
+    | ( I.Fin l, I.Fin r ) -> ExternTypes.Interval (l,r)
+    | _ -> ExternTypes.Undefined (* todo *)
+
+
 end
 
 (*module IncExcInterval : S with type t = [ | `Excluded of Interval.t| `Included of Interval.t ] = 
@@ -1776,6 +1798,7 @@ struct
   let logor  = (||)
   let pretty_diff () (x,y) = dprintf "%s: %a instead of %a" (name ()) pretty x pretty y
   let printXml f x = BatPrintf.fprintf f "<value>\n<data>\n%s\n</data>\n</value>\n" (short 800 x) 
+  let to_ext_value x = if x then ExternTypes.Undefined (*todo*) else ExternTypes.Interval(0L,0L)
 end
 
 module Booleans = MakeBooleans (
@@ -1847,6 +1870,7 @@ let minimal      x = None
   let logor  n1 n2 = ()
   let pretty_diff () (x,y) = dprintf "%s: %a instead of %a" (name ()) pretty x pretty y
   let printXml f x = BatPrintf.fprintf f "<value>\n<data>\n%s\n</data>\n</value>\n" (short 800 x) 
+  let to_ext_value x = ExternTypes.Undefined (* todo *)
 end
 
 
@@ -2028,6 +2052,11 @@ include Lattice.Prod (I1) (I2)
   let is_bool (x1,x2) = (I1.is_bool x1) || (I2.is_bool x2)
   let is_int (x1,x2) = (I1.is_int x1) || (I2.is_int x2)
   let printXml f x = BatPrintf.fprintf f "<value>\n<data>\n%s\n</data>\n</value>\n" (short 800 x) 
+
+  let to_ext_value x =
+    match minimal x,maximal x with
+    | Some l, Some r -> ExternTypes.Interval (l,r)
+    | _ -> ExternTypes.Undefined
 
 end
 
@@ -2541,5 +2570,6 @@ struct
   let pretty_diff () (x,y) = dprintf "%a instead of %a" pretty x pretty y
 
   let printXml f x = BatPrintf.fprintf f "<value>\n<data>\n%s\n</data>\n</value>\n" (short 800 x) 
+  let to_ext_value x = ExternTypes.Undefined (* todo *)
 
 end
