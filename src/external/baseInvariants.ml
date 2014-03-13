@@ -12,8 +12,10 @@ module BaseDomainHandler : (ValueDomainHandler with type t = VD.t) = struct
   module ID = ValueDomain.ID
   module AD = ValueDomain.AD
 
-  (* merge invariants of base-domain by with join-operator *)
+  (* merge invariants of base-domain with join-operator *)
   let merge = VD.join
+
+  (* create an external value *)
   let to_value (x:t) = match x with
   | `Int i -> ID.to_ext_value i
   | `Top | _ -> Undefined
@@ -23,7 +25,7 @@ end
 module S : (InvariantsCreationHelper with type t = BaseDomain.Dom.t) = struct
   type t = BaseDomain.Dom.t
 
-  module BIC = HashtblInvariantsCreator( BaseDomainHandler )
+  module BIC = HashtblInvariantsCreator.S( BaseDomainHandler )
 
   (* base-invariants *)
   let baseInvariants = BIC.create ()
