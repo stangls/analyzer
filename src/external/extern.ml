@@ -1,15 +1,22 @@
-(* Processing of external information of other tools *)
+
+(*
+  Processing of external information of other tools.
+  This is the main file providing all required functionality to Goblint as an interface (see extern.mli), hiding actual implementations of readers, writers and transformers.
+*)
 
 open Cil
 open ExternTypes
 open ExternReaders
 open ExternManipulator
+open ExternWriters
 open GobConfig
 
 (* specify reader *)
-module IF = IxFileInvariantsReader (*DummyInvariantsReader*)
+module IR = IxFileInvariantsReader (*DummyInvariantsReader*)
 (* specify modifier *)
 module M = M1
+(* specify writer *)
+module IW = IxFileInvariantsWriter
 
 exception InternalError
 
@@ -76,7 +83,7 @@ let init merged_AST cFileNames =
     | _ -> false
   in begin
     if get_bool "ext_read" then
-      loaded_invariants := List.fold_left (aggregate_cil_invariants IF.of_c_file) (aggregate_cil_invariants IF.of_file [] (get_string "ext_readFile")) cFileNames;
+      loaded_invariants := List.fold_left (aggregate_cil_invariants IR.of_c_file) (aggregate_cil_invariants IR.of_file [] (get_string "ext_readFile")) cFileNames;
     if use_intern_assert then begin
       assert_fun := Some (create_exp intern_assert)
     end else begin
@@ -114,18 +121,23 @@ let assertion_exprs (loc:Cil.location) : (Cil.exp * Cil.exp list) =
 
 module BI = BaseInvariants.S
 
+let should_create = String.length (get_string "ext_writeFile") != 0
+
 (*
   create invariants from base-analysis state
-  if we are in the verifying stage
+  only if we are in the verifying stage
+  and we have a filename to write to
 *)
-let create_base_invariants d : unit =
-  if !Goblintutil.in_verifying_stage then BI.store d
+let create_base_invariants d =
+  if should_create && !Goblintutil.in_verifying_stage then
+    BI.store d
 
 let write_invariants (_:unit) : unit =
   let invs = BI.get_invariants ()
   in let (numUndefined,invs) = Helper.filter_undefined_var_invariants invs
   in
     List.iter ( fun x -> Printf.printf "Invariant created:\n%s\n" ( Pretty.sprint ~width:80 (d_invariant x) ) ) invs;
-    Printf.printf "%d undefined invariants have been filtered out.\n" numUndefined
+    Printf.printf "%d undefined invariants have been filtered out.\n" numUndefined;
+    IW.to_file (get_string "ext_writeFile") invs
 
 
