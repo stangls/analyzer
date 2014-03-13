@@ -12,7 +12,7 @@ module BaseDomainHandler : (ValueDomainHandler with type t = VD.t) = struct
   module ID = ValueDomain.ID
   module AD = ValueDomain.AD
 
-  (* merge invariants of base-domain with join-operator *)
+  (* merge invariants of base-domain with join-operator (todo : write about contexts) *)
   let merge = VD.join
 
   (* create an external value *)

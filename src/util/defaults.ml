@@ -77,7 +77,8 @@ let _ =
   reg Std "nonstatic"       "false"        "Analyzes all non-static functions.";
   reg Std "colors"          "false"        "Colored output.";
   reg Std "ext_readFile"    "''"           "path to XML file listing external invariants.";
-  reg Std "ext_read"        "true"         "process external invariants."
+  reg Std "ext_read"        "true"         "process external invariants.";
+  reg Std "ext_writeFile"   "''"           "path to XML file to write external invariants to (typically \"out.ix\")"
                                                
 (* {4 category [Analyses]} *)
 
@@ -177,7 +178,7 @@ let default_schema =
 "
 { 'id'              : 'root'
 , 'type'            : 'object'
-, 'required'        : ['outfile', 'includes', 'kernel_includes', 'custom_includes', 'custom_incl', 'custom_libc', 'justcil', 'justcfg', 'dopartial', 'printstats', 'gccwarn', 'noverify', 'mainfun', 'exitfun', 'otherfun', 'allglobs', 'keepcpp', 'merge-conflicts', 'cppflags', 'kernel', 'dump_globs', 'result', 'solver', 'allfuns', 'nonstatic', 'colors', 'ext_readFile','ext_read']
+, 'required'        : ['outfile', 'includes', 'kernel_includes', 'custom_includes', 'custom_incl', 'custom_libc', 'justcil', 'justcfg', 'dopartial', 'printstats', 'gccwarn', 'noverify', 'mainfun', 'exitfun', 'otherfun', 'allglobs', 'keepcpp', 'merge-conflicts', 'cppflags', 'kernel', 'dump_globs', 'result', 'solver', 'allfuns', 'nonstatic', 'colors', 'ext_readFile','ext_read','ext_writeFile']
 , 'additionalProps' : false
 , 'properties' : 
   { 'ana' : 
@@ -230,6 +231,7 @@ let default_schema =
   , 'colors'          : {}
   , 'ext_readFile'    : {}
   , 'ext_read'        : {}
+  , 'ext_writeFile'   : {}
   }
 }"
 

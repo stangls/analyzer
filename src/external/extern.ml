@@ -41,7 +41,7 @@ let group_invariants = true
   also determines a function to be used as assertion-function for injection (configuration see above)
   confuration parameters:
     ext_read : boolean      read actual external information (to be injected)
-    ext_read_file : string  (additional) filename to read from with the configured readers (see above)
+    ext_readFile : string   (additional) filename to read from with the configured readers (see above)
 *)
 let init merged_AST cFileNames =
   let aggregate_cil_invariants inv_getter agg get_param : cil_invariant list = 
@@ -121,23 +121,22 @@ let assertion_exprs (loc:Cil.location) : (Cil.exp * Cil.exp list) =
 
 module BI = BaseInvariants.S
 
-let should_create = String.length (get_string "ext_writeFile") != 0
-
 (*
   create invariants from base-analysis state
   only if we are in the verifying stage
   and we have a filename to write to
 *)
 let create_base_invariants d =
-  if should_create && !Goblintutil.in_verifying_stage then
+  if (String.length (get_string "ext_writeFile") != 0) && !Goblintutil.in_verifying_stage then
     BI.store d
 
 let write_invariants (_:unit) : unit =
   let invs = BI.get_invariants ()
   in let (numUndefined,invs) = Helper.filter_undefined_var_invariants invs
-  in
+  in begin
     List.iter ( fun x -> Printf.printf "Invariant created:\n%s\n" ( Pretty.sprint ~width:80 (d_invariant x) ) ) invs;
     Printf.printf "%d undefined invariants have been filtered out.\n" numUndefined;
-    IW.to_file (get_string "ext_writeFile") invs
+    (*IW.to_file (get_string "ext_writeFile") invs*)
+  end
 
 
