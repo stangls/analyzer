@@ -368,8 +368,7 @@ struct
     Spec.finalize ();
         
     if (get_bool "dbg.verbose") then print_endline "Generating output.";
-    Result.output (lazy !local_xml) !global_xml make_global_xml make_global_fast_xml file;
-    Extern.write_invariants ()
+    Result.output (lazy !local_xml) !global_xml make_global_xml make_global_fast_xml file
   
   let analyze f sf = 
     if get_bool "ana.hashcons" then

@@ -134,9 +134,9 @@ let write_invariants (_:unit) : unit =
   let invs = BI.get_invariants ()
   in let (numUndefined,invs) = Helper.filter_undefined_var_invariants invs
   in begin
-    List.iter ( fun x -> Printf.printf "Invariant created:\n%s\n" ( Pretty.sprint ~width:80 (d_invariant x) ) ) invs;
+    (*List.iter ( fun x -> Printf.printf "Invariant created:\n%s\n" ( Pretty.sprint ~width:80 (d_invariant x) ) ) invs;*)
     Printf.printf "%d undefined invariants have been filtered out.\n" numUndefined;
-    (*IW.to_file (get_string "ext_writeFile") invs*)
+    IW.to_file (get_string "ext_writeFile") invs
   end
 
 

@@ -281,6 +281,8 @@ let main =
       Stats.time "extern_init" (Extern.init merged_AST) !cFileNames;
       (* perform actual analysis *)
       do_analyze merged_AST;
+      (* write out invariants *)
+      Stats.time "extern_write" (Extern.write_invariants) ();
     end;
     if ((String.length (get_string "questions.file")) > 0) then question_save_db (get_string "questions.file") else ();
     Report.do_stats !cFileNames
