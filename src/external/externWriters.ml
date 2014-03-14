@@ -10,7 +10,11 @@ struct
   (* supply a function to print xml as string *)
   let to_string =
     Xml.to_string_fmt (* nice formatting *)
-  (*Xml.to_string*) (* small formatting *)
+    (*Xml.to_string (* small formatting *)*)
+
+  let rel_path f =
+    let firstSlash = Str.regexp "^\\/"
+    in Str.replace_first firstSlash "" f
 
   let xml_simple tagName content = Element( tagName, [], [PCData(content)] )
 
@@ -20,13 +24,13 @@ struct
       match loc with
       | Position(file,line,col) ->
         [
-          xml_simple "file" file;
+          xml_simple "file" (rel_path file);
           xml_simple "line" (string_of_int line);
           xml_simple "column" (string_of_int col)
         ]
       | FunctionEntry(file,func) ->
         [
-          xml_simple "file" file;
+          xml_simple "file" (rel_path file);
           xml_simple "function-entry" func
         ]
     )

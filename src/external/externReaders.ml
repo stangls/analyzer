@@ -48,7 +48,7 @@ struct
 
   exception No_location
   let of_xml_file fn cfn =
-    let path=try Str.string_before fn ( Str.search_forward fileRegexp fn 0 ) with Not_found -> ""
+    let path=try Str.string_before fn ( Str.search_forward fileRegexp fn 0 ) ^ "/" with Not_found -> ""
     in
     try
       let convert_invariants invs (node:xml) : t =
@@ -59,9 +59,9 @@ struct
             in if nodeTag="location" then begin
               (* fault-tolerant location-interpretation *)
               let file =
-                try Some (path ^ "/" ^ element_value (get_element "orig-file" node)) with Not_found ->
-                try Some (path ^ "/" ^ element_value (get_element "org-file" node)) with Not_found ->
-                try Some (path ^ "/" ^ element_value (get_element "file" node)) with Not_found -> cfn
+                try Some (path ^ element_value (get_element "orig-file" node)) with Not_found ->
+                try Some (path ^ element_value (get_element "org-file" node)) with Not_found ->
+                try Some (path ^ element_value (get_element "file" node)) with Not_found -> cfn
               and line =
                 try Some( int_of_string (element_value (get_element "orig-line" node)) ) with Not_found ->
                 try Some( int_of_string (element_value (get_element "org-line" node)) ) with Not_found ->
