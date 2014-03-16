@@ -193,8 +193,8 @@ end
 
 module type InvariantsCreationHelper = sig
   type t
-  (* create invariants from t *)
-  val store : t -> unit
+  (* create invariants from t at given location. *)
+  val store : Cil.location -> t -> unit
   (* retrieve actual invariants *)
   val get_invariants : unit -> invariant list
 end

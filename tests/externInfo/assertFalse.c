@@ -16,7 +16,8 @@ void* fun(void* args){
 
 int main() {
   pthread_t id;
-  pthread_create(&id, NULL, fun, NULL);pthread_join (id, NULL);
+  pthread_create(&id, NULL, fun, NULL);
+  pthread_join (id, NULL);
   return 0;
 }
 

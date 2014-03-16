@@ -121,6 +121,13 @@ let assertion_exprs (loc:Cil.location) : (Cil.exp * Cil.exp list) =
 
 module BI = BaseInvariants.S
 
+  (* find the location for these new invariants *)
+let current_location (_:unit) =
+  let loc = !Tracing.next_loc
+  in
+    Printf.printf "invariant location: %s\n" ( Pretty.sprint ~width:80 (d_loc () loc) );
+    loc
+
 (*
   create invariants from base-analysis state
   only if we are in the verifying stage
@@ -128,12 +135,12 @@ module BI = BaseInvariants.S
 *)
 let create_base_invariants d =
   if (String.length (get_string "ext_writeFile") != 0) && !Goblintutil.in_verifying_stage then
-    BI.store d
+    BI.store (current_location ()) d
 
 let write_invariants (_:unit) : unit =
   let invs = BI.get_invariants ()
   in let (numUndefined,invs) = Helper.filter_undefined_var_invariants invs
-  in begin
+  in if (String.length (get_string "ext_writeFile") != 0) then begin
     (*List.iter ( fun x -> Printf.printf "Invariant created:\n%s\n" ( Pretty.sprint ~width:80 (d_invariant x) ) ) invs;*)
     Printf.printf "%d undefined invariants have been filtered out.\n" numUndefined;
     IW.to_file (get_string "ext_writeFile") invs

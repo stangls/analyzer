@@ -38,7 +38,7 @@ module S ( VDM:ValueDomainHandler ) : (InvariantsCreator with type d=VDM.t and t
         ( { name=var.vname }, VDM.to_value value )
       in 
         (
-          Position( loc.file, loc.line, 0 ),
+          Position( loc.file, loc.line, 1 ),
           List.rev_map varVal2varInv varValList
         )::acc
     in Hashtbl.fold toInvs mappedToLocs []
