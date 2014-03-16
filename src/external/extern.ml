@@ -125,7 +125,7 @@ module BI = BaseInvariants.S
 let current_location (_:unit) =
   let loc = !Tracing.next_loc
   in
-    Printf.printf "invariant location: %s\n" ( Pretty.sprint ~width:80 (d_loc () loc) );
+    Printf.printf "invariant location: %s (byte offset %d)\n" ( Pretty.sprint ~width:80 (d_loc () loc) ) loc.byte;
     loc
 
 (*
@@ -142,6 +142,7 @@ let write_invariants (_:unit) : unit =
   in let (numUndefined,invs) = Helper.filter_undefined_var_invariants invs
   in if (String.length (get_string "ext_writeFile") != 0) then begin
     (*List.iter ( fun x -> Printf.printf "Invariant created:\n%s\n" ( Pretty.sprint ~width:80 (d_invariant x) ) ) invs;*)
+    Printf.printf "%d invariants created.\n" (List.length invs);
     Printf.printf "%d undefined invariants have been filtered out.\n" numUndefined;
     IW.to_file (get_string "ext_writeFile") invs
   end
