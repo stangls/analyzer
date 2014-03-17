@@ -33,6 +33,8 @@ let use_intern_assert = true
 let assert_fun = ref None
 (* group the read invariants by var-name with Or? *)
 let group_invariants = true
+(* verify invariants *)
+let verify_invariants = true
 
 (*
   initialize required things for external invariants.
@@ -139,7 +141,9 @@ let create_base_invariants var_get ctx =
 type base_ctx = (BaseDomain.Dom.t,BaseDomain.VD.t) Analyses.ctx
 
 let write_invariants (_:unit) : unit =
-  let invs = BI.get_invariants ()
+  let invs =
+    Printf.printf "Writing invariants...\n";
+    BI.get_invariants ()
   in let (numUndefined,invs) = Helper.filter_undefined_var_invariants invs
   in if (String.length (get_string "ext_writeFile") != 0) then begin
     (*List.iter ( fun x -> Printf.printf "Invariant created:\n%s\n" ( Pretty.sprint ~width:80 (d_invariant x) ) ) invs;*)

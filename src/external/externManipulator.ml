@@ -261,7 +261,9 @@ module M1 : Manipulator = struct
       (* get list of unvisited invariants *)
       method get_invs = invs
       (* get number of invariants filtered away *)
-      method get_filtered_invs = filtered_invariants
+      method get_filtered_invs =
+        let (_,ret) = Helper.filter_undefined_var_invariants filtered_invariants
+        in ret
     end
 
   let transform_to_cil invariants file =
