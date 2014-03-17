@@ -1,5 +1,5 @@
 
-extern int i;
+int i;
 
 void one();
 void two();

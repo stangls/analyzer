@@ -3,11 +3,13 @@
 
 #include "test.h"
 
-int i=0;
+extern int i;
+extern int j=0;
 
 int main() {
-  i=0;
   one();
   two();
   printf( "%d\n", i );
+  j++;
+  printf( "%d\n", j );
 }

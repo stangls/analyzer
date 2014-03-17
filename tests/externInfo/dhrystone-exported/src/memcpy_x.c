@@ -3,8 +3,8 @@
 #ifdef  NOSTRUCTASSIGN
 void memcpy_x(char *d, char *s, int l)
 {
-        while (l--) *d++ = *s++; 
-
+        while (l--)
+          *d++ = *s++; 
         counter ++;
 }
 #endif
