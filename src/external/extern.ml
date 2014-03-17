@@ -101,17 +101,24 @@ let init merged_AST cFileNames =
   retrieve pre-statement invariants for Cil.location loc in the form of a Cil.expr .
   call [init] first to initialize invariants for given files.
 *)
-let get_loc_inv_expr (loc:Cil.location) : Cil.exp list =
-  let filter_fun (loc',_:cil_invariant) = ( loc.line=loc'.line && (String.compare loc.file loc'.file = 0) )
-  in let get_expr (loc',expr) = expr
-  in List.map get_expr (List.filter filter_fun !loaded_invariants)
+let get_loc_inv_expr (loc_from:Cil.location) (loc:Cil.location) : Cil.exp list =
+  if ( loc.line=loc_from.line && (String.compare loc.file loc_from.file = 0) ) then begin
+    Printf.printf "not getting invariant expressions at %s, because location is unchanged!\n" ( Pretty.sprint ~width:80 (d_loc () loc) );
+    []
+  end else begin
+    Printf.printf "getting invariant expressions at %s\n" ( Pretty.sprint ~width:80 (d_loc () loc) );
+    let filter_fun (loc',_:cil_invariant) = ( loc.line=loc'.line && (String.compare loc.file loc'.file = 0) )
+    in let get_expr (loc',expr) = expr
+    in List.map get_expr (List.filter filter_fun !loaded_invariants)
+  end
 
 (*
-  retrieve assertion expression and list of expressions to assert at location loc .
+  retrieve assertion expression and list of expressions to assert which should be used
+  after the transition from loc_from to loc.
 *)
-let assertion_exprs (loc:Cil.location) : (Cil.exp * Cil.exp list) =
+let assertion_exprs (loc_from:Cil.location) (loc:Cil.location) : (Cil.exp * Cil.exp list) =
   match !assert_fun with
-  | Some assert_fun_exp -> assert_fun_exp , get_loc_inv_expr loc
+  | Some assert_fun_exp -> assert_fun_exp , get_loc_inv_expr loc_from loc
   | None -> raise InternalError
 
 

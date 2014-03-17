@@ -437,13 +437,16 @@ struct
         ; assign = (fun ?name _ -> failwith "Cannot \"assign\" in query context.")
         } 
       in
+      Printf.printf "S.query (%s)\n" S.name;
       Queries.Result.meet a @@ S.query ctx' q
     in
+      Printf.printf "MCP2.query (b)\n";
       let x = fold_left f `Top @@ spec_list ctx.local in
       do_sideg ctx !sides;
       x
       
   let query ctx q = 
+    Printf.printf "MCP2.query\n";
     match q with
       | Queries.PrintFullState ->
         ignore (Pretty.printf "Current State:\n%a\n\n" D.pretty ctx.local);

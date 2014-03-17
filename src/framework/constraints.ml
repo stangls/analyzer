@@ -46,6 +46,7 @@ struct
     D.lift d, diff
     
   let query ctx q = 
+    Printf.printf "HashConsLifter.query\n";
     S.query (conv ctx) q
     
   let assign ctx lv e = 
@@ -111,7 +112,9 @@ struct
     
   let lift_fun ctx f g h b =
     try f @@ h (g (conv ctx)) 
-    with Deadcode -> b
+    with Deadcode ->
+      Printf.printf "DeadCodeLifter : deadcode!\n";
+      b
   
   let sync ctx = 
     let liftpair (x,y) = D.lift x, y in
@@ -121,7 +124,9 @@ struct
     let liftmap = List.map (fun (x,y) -> D.lift x, D.lift y) in
     lift_fun ctx liftmap S.enter ((|>) args % (|>) f % (|>) r) []
     
-  let query ctx q     = lift_fun ctx identity S.query  ((|>) q)            `Bot    
+  let query ctx q     =
+    Printf.printf "DeadCodeLifter.query\n";
+    lift_fun ctx identity S.query  ((|>) q)            `Bot    
   let assign ctx lv e = lift_fun ctx D.lift   S.assign ((|>) e % (|>) lv) `Bot
   let branch ctx e tv = lift_fun ctx D.lift   S.branch ((|>) tv % (|>) e) `Bot
   let body ctx f      = lift_fun ctx D.lift   S.body   ((|>) f)            `Bot
@@ -170,7 +175,9 @@ struct
       ; sideg   = sideg
       ; assign = (fun ?name _    -> failwith "Cannot \"assign\" in common context.")
       } 
-    and query x = S.query ctx x in
+    and query x =
+      Printf.printf "S.query (%s)\n" S.name;
+      S.query ctx x in
     (* ... nice, right! *)
     let pval, diff = S.sync ctx in
     let _ = List.iter (uncurry sideg) diff in
@@ -222,6 +229,7 @@ struct
     bigsqcup ((S.branch ctx e tv)::!r)
 
   let tf_normal_call ctx lv e f args  getl sidel getg sideg =
+    Printf.printf "tf_normal_call\n";
     let combine (cd, fd) = S.combine {ctx with local = cd} lv e f args fd in
     let paths = S.enter ctx lv f args in
     let _     = if not (get_bool "exp.full-context") then List.iter (fun (c,v) -> sidel (FunctionEntry f, S.context v) v) paths in
@@ -230,14 +238,16 @@ struct
     let paths = List.map combine paths in
       List.fold_left D.join (D.bot ()) paths
       
-  let tf_special_call ctx lv f args = S.special ctx lv f args 
+  let tf_special_call ctx lv f args =
+    Printf.printf "tf_special_call\n";
+    S.special ctx lv f args 
 
   let tf_proc lv e args getl sidel getg sideg d = 
     let ctx, r = common_ctx d getl sidel getg sideg in 
     let functions = 
       match ctx.ask (Queries.EvalFunvar e) with 
         | `LvalSet ls -> Queries.LS.fold (fun ((x,_)) xs -> x::xs) ls [] 
-        | `Bot -> []
+        | `Bot -> Printf.printf "empty eval funvar\n"; []
         | _ -> Messages.bailwith ("ProcCall: Failed to evaluate function expression "^(sprint 80 (d_exp () e)))
     in
     let one_function f = 
@@ -251,42 +261,53 @@ struct
 
   let tf getl sidel getg sideg edge d = 
     begin match edge with
-      | Assign (lv,rv) -> tf_assign lv rv
-      | Proc (r,f,ars) -> tf_proc r f ars
-      | Entry f        -> tf_entry f
-      | Ret (r,fd)     -> tf_ret r fd
-      | Test (p,b)     -> tf_test p b
+      | Assign (lv,rv) -> Printf.printf "assign\n"; tf_assign lv rv
+      | Proc (r,f,ars) -> Printf.printf "proc\n"; tf_proc r f ars
+      | Entry f        -> Printf.printf "entry\n"; tf_entry f
+      | Ret (r,fd)     -> Printf.printf "ret\n"; tf_ret r fd
+      | Test (p,b)     -> Printf.printf "test\n"; tf_test p b
       | ASM _          -> fun _ _ _ _ d -> ignore (warn "ASM statement ignored."); d
       | Skip           -> fun _ _ _ _ d -> d
-      | SelfLoop       -> tf_loop 
+      | SelfLoop       -> Printf.printf "selfloop\n"; tf_loop 
     end getl sidel getg sideg d
 
   (*
     inject assertions for invariants by substituting state d of variable (u,c) with a new one d',
     created by execution of assertion-effects.
     the assertions come from the Extern module in the form of Cil expressions.
+    we go from loc1 to loc2.
   *)
-  let tf getl sidel getg sideg edge d loc =
-    if get_bool "ext_read" then begin
-      (* determine expressions and assertion-function and execute (procedure call) *)
-      let (assert_fun_exp,expr_list) = Extern.assertion_exprs loc
-      (* recompute a given state [s] according to an invariant-list [expr_list] by applying a modified get-local-function *)
-      in let rec change_state expr_list (s:S.D.t):S.D.t = match expr_list with
-        | e::es  ->
-          let new_s = tf_proc None assert_fun_exp [e] getl sidel getg sideg s
-          in change_state es new_s
-        | []    ->  s
-      (* modified get-local-function for actual tf *)
-      in tf getl sidel getg sideg edge ( change_state expr_list d )
-    end else
+  let tf getl sidel getg sideg edge d loc1 loc2 =
+    let new_d =
+      Printf.printf "tf with normal state\n";
       tf getl sidel getg sideg edge d
+    in
+      if get_bool "ext_read" then begin
+        (* determine expressions and assertion-function and execute (procedure call) *)
+        let (assert_fun_exp,expr_list) = Extern.assertion_exprs loc1 loc2
+        (* recompute a given state [s] according to an invariant-list [expr_list] by applying a modified get-local-function *)
+        in let rec change_state expr_list (s:S.D.t):S.D.t = match expr_list with
+          | e::es  ->
+            Printf.printf "assertion %s\n" (Pretty.sprint ~width:80 (d_exp () e));
+            let new_s = tf_proc None assert_fun_exp [e] getl sidel getg sideg s
+            in change_state es new_s
+          | []    ->  s
+        (* modified get-local-function for actual tf *)
+        in 
+          Printf.printf "changing state\n";
+          change_state expr_list new_d
+      end else
+        new_d
     
   let tf getl sidel getg sideg (loc,edge) d (f,t) =
     let old_loc  = !Tracing.current_loc in
     let old_loc2 = !Tracing.next_loc in
     let _       = Tracing.current_loc := f in
     let _       = Tracing.next_loc := t in
-    let d       = tf getl sidel getg sideg edge d loc in
+    let d       =
+      Printf.printf "current loc  : %s\n" ( Pretty.sprint ~width:80 (d_loc () f) );
+      Printf.printf "next loc     : %s\n" ( Pretty.sprint ~width:80 (d_loc () t) );
+      tf getl sidel getg sideg edge d f t in
     let _       = Tracing.current_loc := old_loc in 
     let _       = Tracing.next_loc := old_loc2 in 
       d
