@@ -28,7 +28,7 @@ module M1 : Manipulator = struct
   let print_location loc ~name =
     () (*Printf.printf "Location: line %d , byte %d, file %s (%s)\n" loc.line loc.byte loc.file name*)
 
-  class expr_converter_visitor (invariants:invariant list) =
+  class expr_converter_visitor (invariants:invariant list) file =
     object (this)
       inherit nopCilVisitor
       val mutable invs:invariant list = invariants
@@ -54,8 +54,13 @@ module M1 : Manipulator = struct
                 true (* = stop searching *)
               end else
                 false (* = continue searching *)
+            in let possible_cil_global g =
+              match g with
+              | GVarDecl(v,_) -> possible_cil_var v
+              | GVar(v,_,_) -> possible_cil_var v
+              | _ -> false
             in begin
-              if not (VS.exists possible_cil_var liveset) then
+              if not ( VS.exists possible_cil_var liveset ) && not ( List.exists possible_cil_global file.globals ) then
                 Printf.printf "WARNING: unknown variable %s in external invariant for %s at line %d.\n" var.name loc.file loc.line;
               !cil_var
             end
@@ -268,7 +273,7 @@ module M1 : Manipulator = struct
 
   let transform_to_cil invariants file =
     (* cilVisitor for visiting functions and statements *)
-    let visitor = new expr_converter_visitor invariants
+    let visitor = new expr_converter_visitor invariants file
     in begin
       (* create expressions from invariants *)
       visitCilFileSameGlobals ( visitor :> cilVisitor ) file;

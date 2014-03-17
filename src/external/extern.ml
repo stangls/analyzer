@@ -141,15 +141,17 @@ let create_base_invariants var_get ctx =
 type base_ctx = (BaseDomain.Dom.t,BaseDomain.VD.t) Analyses.ctx
 
 let write_invariants (_:unit) : unit =
-  let invs =
+  if (String.length (get_string "ext_writeFile") != 0) then begin
     Printf.printf "Writing invariants...\n";
-    BI.get_invariants ()
-  in let (numUndefined,invs) = Helper.filter_undefined_var_invariants invs
-  in if (String.length (get_string "ext_writeFile") != 0) then begin
-    (*List.iter ( fun x -> Printf.printf "Invariant created:\n%s\n" ( Pretty.sprint ~width:80 (d_invariant x) ) ) invs;*)
-    Printf.printf "%d invariants created.\n" (List.length invs);
-    Printf.printf "%d undefined invariants have been filtered out.\n" numUndefined;
-    IW.to_file (get_string "ext_writeFile") invs
+    let invs =
+      BI.get_invariants ()
+    in let (numUndefined,invs) = Helper.filter_undefined_var_invariants invs
+    in  begin
+      (*List.iter ( fun x -> Printf.printf "Invariant created:\n%s\n" ( Pretty.sprint ~width:80 (d_invariant x) ) ) invs;*)
+      Printf.printf "%d invariants created.\n" (List.length invs);
+      Printf.printf "%d undefined invariants have been filtered out.\n" numUndefined;
+      IW.to_file (get_string "ext_writeFile") invs
+    end
   end
 
 
