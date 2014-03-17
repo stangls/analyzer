@@ -11,7 +11,8 @@ val assertion_exprs : Cil.location -> Cil.exp * Cil.exp list
 val intern_assert : Cil.varinfo
 
 (* create invariants in base analysis *)
-val create_base_invariants : BaseDomain.Dom.t -> unit
+type base_ctx = (BaseDomain.Dom.t,BaseDomain.VD.t) Analyses.ctx
+val create_base_invariants : ( base_ctx -> Cil.varinfo -> BaseDomain.VD.t ) -> base_ctx -> unit
 
 (* write out all created invariants *)
 val write_invariants : unit -> unit

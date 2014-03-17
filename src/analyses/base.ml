@@ -894,7 +894,8 @@ struct
     let ret =  set_many ctx.ask ctx.global ctx.local inits
     in
       (* Before returning the result we do a side-effect: Create base-invariants *)
-      Extern.create_base_invariants ret;
+      let var_get ctx var = eval_rv ctx.ask ctx.global ctx.local (Lval(Var(var),NoOffset))
+      in Extern.create_base_invariants var_get ctx;
       ret
 
   let return ctx exp fundec =

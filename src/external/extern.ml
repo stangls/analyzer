@@ -133,9 +133,10 @@ let current_location (_:unit) =
   only if we are in the verifying stage
   and we have a filename to write to
 *)
-let create_base_invariants d =
+let create_base_invariants var_get ctx =
   if (String.length (get_string "ext_writeFile") != 0) && !Goblintutil.in_verifying_stage then
-    BI.store (current_location ()) d
+    BI.store (current_location ()) (var_get,ctx)
+type base_ctx = (BaseDomain.Dom.t,BaseDomain.VD.t) Analyses.ctx
 
 let write_invariants (_:unit) : unit =
   let invs = BI.get_invariants ()

@@ -22,18 +22,27 @@ module BaseDomainHandler : (ValueDomainHandler with type t = VD.t) = struct
 
 end
 
-module S : (InvariantsCreationHelper with type t = BaseDomain.Dom.t) = struct
-  type t = BaseDomain.Dom.t
+type ctx = (BaseDomain.Dom.t,VD.t) Analyses.ctx
+type st = ( ctx -> Cil.varinfo -> VD.t ) * ctx
+
+module S : (InvariantsCreationHelper with type t = st ) = struct
+  type t = st
 
   module BIC = HashtblInvariantsCreator.S( BaseDomainHandler )
 
   (* base-invariants *)
   let baseInvariants = BIC.create ()
 
-  (* create invariants within some HashTblInvariantsCreator *)
-  let store loc (d:t) : unit =
-    let (cpa,flags) = d
-    in BaseDomain.CPA.iter (BIC.add baseInvariants loc) cpa
+  (*
+    create invariants within some HashTblInvariantsCreator.
+    the value comes from the base-analysis' right-hand side evaluation.
+  *)
+  let store loc ((var_get,ctx):t) : unit =
+    let handle_entry var vd_value =
+      let value = var_get ctx var
+      in BIC.add baseInvariants loc var value
+    and (cpa,_) = ctx.local
+    in BaseDomain.CPA.iter (handle_entry) cpa
 
   let get_invariants (_:unit) =
     BIC.retrieve baseInvariants
