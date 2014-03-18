@@ -284,7 +284,7 @@ struct
     in
       if get_bool "ext_read" then begin
         (* determine expressions and assertion-function and execute (procedure call) *)
-        let (assert_fun_exp,expr_list) = Extern.assertion_exprs loc1 loc2
+        let (assert_fun_exp,expr_list) = Extern.assertion_exprs loc1 loc2 edge
         (* recompute a given state [s] according to an invariant-list [expr_list] by applying a modified get-local-function *)
         in let rec change_state expr_list (s:S.D.t):S.D.t = match expr_list with
           | e::es  ->

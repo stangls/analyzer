@@ -7,6 +7,7 @@ int main(){
   one();
   fun(one());
   fun(two());
-  printf("%d",1);
+  int x = fun(fun(1));
+  printf("%d",fun(x));
   return 0;
 }

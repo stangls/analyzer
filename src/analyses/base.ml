@@ -1174,7 +1174,7 @@ struct
       | Q.EvalFunvar e ->
         begin
           let fs = eval_funvar ctx e in
-          Messages.report ("Base: I should know it! "^string_of_int (List.length fs));
+          (*Messages.report ("Base: I should know it! "^string_of_int (List.length fs));*)
           `LvalSet (List.fold_left (fun xs v -> Q.LS.add (v,`NoOffset) xs) (Q.LS.empty ()) fs)
         end
       | Q.EvalInt e -> begin
@@ -1488,9 +1488,7 @@ struct
       | `Unknown "__goblint_check" -> assert_fn ctx (List.hd args) true false 
       | `Unknown "__goblint_commit" -> assert_fn ctx (List.hd args) false true 
       | `Unknown "__goblint_assert" -> assert_fn ctx (List.hd args) true true 
-      | `GoblintCommit e ->
-        Printf.printf "goblint commit\n";
-        assert_fn ctx e true true 
+      | `GoblintCommit e -> assert_fn ctx e false true 
       | `Assert e -> assert_fn ctx e (get_bool "dbg.debug") (not (get_bool "dbg.debug")) 
       | _ -> begin
           let lv_list = 

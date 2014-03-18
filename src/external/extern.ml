@@ -10,6 +10,7 @@ open ExternReaders
 open ExternManipulator
 open ExternWriters
 open GobConfig
+open MyCFG
 
 (* specify reader *)
 module IR = IxFileInvariantsReader (*DummyInvariantsReader*)
@@ -116,9 +117,15 @@ let get_loc_inv_expr (loc_from:Cil.location) (loc:Cil.location) : Cil.exp list =
   retrieve assertion expression and list of expressions to assert which should be used
   after the transition from loc_from to loc.
 *)
-let assertion_exprs (loc_from:Cil.location) (loc:Cil.location) : (Cil.exp * Cil.exp list) =
+let assertion_exprs (loc_from:Cil.location) (loc:Cil.location) edge : (Cil.exp * Cil.exp list) =
   match !assert_fun with
-  | Some assert_fun_exp -> assert_fun_exp , get_loc_inv_expr loc_from loc
+  | Some assert_fun_exp ->
+    begin
+      (* only certain edges may have assertions after them *)
+      match edge with
+      | Assign(_,_) | Proc(_,_,_) | Entry(_) | Test(_,_) | ASM(_) -> assert_fun_exp , get_loc_inv_expr loc_from loc
+      | Ret (_,_) | Skip | SelfLoop -> assert_fun_exp,[]
+    end
   | None -> raise InternalError
 
 
