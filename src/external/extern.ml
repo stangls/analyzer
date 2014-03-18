@@ -104,11 +104,11 @@ let init merged_AST cFileNames =
 *)
 let get_loc_inv_expr (loc_from:Cil.location) (loc:Cil.location) : Cil.exp list =
   if ( loc.line=loc_from.line && (String.compare loc.file loc_from.file = 0) ) then begin
-    if get_bool "dbg.debug" then
+    if get_bool "dbg.verbose" then
       Printf.printf "not getting invariant expressions at %s, because location is unchanged!\n" ( Pretty.sprint ~width:80 (d_loc () loc) );
     []
   end else begin
-    if get_bool "dbg.debug" then
+    if get_bool "dbg.verbose" then
       Printf.printf "getting invariant expressions at %s\n" ( Pretty.sprint ~width:80 (d_loc () loc) );
     let filter_fun (loc',_:cil_invariant) = ( loc.line=loc'.line && (String.compare loc.file loc'.file = 0) )
     in let get_expr (loc',expr) = expr
@@ -127,7 +127,7 @@ let assertion_exprs (loc_from:Cil.location) (loc:Cil.location) edge : (Cil.exp *
       match edge with
       | Assign(_,_) | Proc(_,_,_) | Entry(_) | Test(_,_) | ASM(_) -> assert_fun_exp , get_loc_inv_expr loc_from loc
       | Ret (_,_) | Skip | SelfLoop ->
-        if get_bool "dbg.debug" then
+        if get_bool "dbg.verbose" then
           Printf.printf "not getting invariant expressions at %s for this kind of edge.\n" ( Pretty.sprint ~width:80 (d_loc () loc) );
         assert_fun_exp,[]
     end
