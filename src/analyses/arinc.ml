@@ -11,167 +11,7 @@ struct
 
   let name = "arinc"
 
-  (* Information for one task *)
-  (* Process ID *)
-  module Pid = IntDomain.Flattened
-  (* Priority *)
-  module Pri = IntDomain.Reverse (IntDomain.Lifted) (* TODO reverse? *)
-  (* Period *)
-  module Per = IntDomain.Flattened
-  (* Capacity *)
-  module Cap = IntDomain.Flattened
-  (* callstack for locations *)
-  type callstack = location list
-
-  (* Information for all tasks *)
-  (* Partition mode *)
-  module Pmo = IntDomain.Flattened
-  (* Preemption lock *)
-  module PrE = IntDomain.Flattened
-  module Node =
-  struct
-    module Base =
-    struct
-      type t = MyCFG.node
-      include Printable.Std
-      include Lattice.StdCousot
-      let short w x = string_of_int (MyCFG.getLoc x).line
-      include Printable.PrintSimple (struct
-        type t' = t
-        let name () = "flat nodes"
-        let short = short
-      end)
-      let equal = Util.equals
-      let hash = Hashtbl.hash
-    end
-    include Lattice.Flat (Base) (struct let top_name = "Unknown node" let bot_name = "Error node" end)
-    let of_node node = `Lifted node
-    let to_node = function `Lifted node -> node | _ -> failwith "Unknown/Error node"
-    let string_of node = Base.short 0 node
-  end
-
-  (* define record type here so that fields are accessable outside of D *)
-  type process = { pid: Pid.t; pri: Pri.t; per: Per.t; cap: Cap.t; pmo: Pmo.t; pre: PrE.t; node: Node.t; callstack: callstack }
-  module D =
-  struct
-    type t = process
-    include Printable.Std
-    include Lattice.StdCousot
-
-    (* printing *)
-    let string_of_callstack xs = "["^String.concat ", " (List.map (fun loc -> string_of_int loc.line) xs)^"]"
-    let short w x = Printf.sprintf "{ pid=%s; pri=%s; per=%s; cap=%s; pmo=%s; pre=%s; node=%s; callstack=%s)" (Pid.short 3 x.pid) (Pri.short 3 x.pri) (Per.short 3 x.per) (Cap.short 3 x.cap) (Pmo.short 3 x.pmo) (PrE.short 3 x.pre) (Node.short 6 x.node) (string_of_callstack x.callstack)
-    include Printable.PrintSimple (struct
-      type t' = t
-      let name () = "ARINC state"
-      let short = short
-    end)
-    let toXML_f sf d =
-      let replace_top name = function
-          | Xml.Element (node, [text, n], elems) -> Xml.Element (node, [text, name ^ n], elems)
-          | x -> x
-      in
-      let elems = [ replace_top "PID: "   @@ Pid.toXML  d.pid
-                  ; replace_top "Priority: "  @@ Pri.toXML d.pri
-                  ; replace_top "Period: "  @@ Per.toXML d.per
-                  ; replace_top "Capacity: "  @@ Cap.toXML d.cap
-                  ; replace_top "Partition mode: "  @@ Pmo.toXML d.pmo
-                  ; replace_top "Preemption lock: " @@ PrE.toXML  d.pre ] in
-      Xml.Element ("Node", ["text", "ARINC state"], elems)
-    let toXML s  = toXML_f short s
-    (* Printable.S *)
-    let equal = Util.equals
-    (* let equal x y = let f z = { z with callstack = List.sort_unique compare z.callstack } in Util.equals (f x) (f y) *)
-    let hash = Hashtbl.hash
-
-    (* modify fields *)
-    let pid f d = { d with pid = f d.pid }
-    let pri f d = { d with pri = f d.pri }
-    let per f d = { d with per = f d.per }
-    let cap f d = { d with cap = f d.cap }
-    let pmo f d = { d with pmo = f d.pmo }
-    let pre f d = { d with pre = f d.pre }
-    let node f d = { d with node = f d.node }
-    let callstack f d = { d with callstack = f d.callstack }
-    (* if x is already in the callstack we move it to the front, this way we can do tail on combine *)
-    let callstack_length = 1
-    let callstack_push x d = if List.length d.callstack < callstack_length then callstack (fun xs -> x :: List.remove xs x) d else d
-
-
-    let bot () = { pid = Pid.bot (); pri = Pri.bot (); per = Per.bot (); cap = Cap.bot (); pmo = Pmo.bot (); pre = PrE.bot (); node = Node.bot (); callstack = [] }
-    let is_bot x = { x with callstack = [] } = bot ()
-    let top () = { pid = Pid.top (); pri = Pri.top (); per = Per.top (); cap = Cap.top (); pmo = Pmo.top (); pre = PrE.top (); node = Node.top (); callstack = [] }
-    let is_top x = { x with callstack = [] } = top ()
-
-    let rec is_prefix = function [],_ -> true | x::xs,y::ys when x=y -> is_prefix (xs,ys) | _ -> false
-    (* let leq x y = Pid.leq x.pid y.pid && Pri.leq x.pri y.pri && Per.leq x.per y.per && Cap.leq x.cap y.cap && List.subset compare x.callstack y.callstack && Pmo.leq x.pmo y.pmo && PrE.leq x.pre y.pre *)
-    let leq x y = Pid.leq x.pid y.pid && Pri.leq x.pri y.pri && Per.leq x.per y.per && Cap.leq x.cap y.cap && Pmo.leq x.pmo y.pmo && PrE.leq x.pre y.pre (* && Node.leq x.node y.node *) && is_prefix (x.callstack, y.callstack)
-    let join_callstack xs ys = if xs<>ys then M.debug_each @@ "JOIN callstacks " ^ string_of_callstack xs ^ " and " ^ string_of_callstack ys; xs
-    let op_scheme op1 op2 op3 op4 op5 op6 op7 x y: t = { pid = op1 x.pid y.pid; pri = op2 x.pri y.pri; per = op3 x.per y.per; cap = op4 x.cap y.cap; pmo = op5 x.pmo y.pmo; pre = op6 x.pre y.pre; node = op7 x.node y.node; callstack = join_callstack x.callstack y.callstack }
-    let join x y = let r = op_scheme Pid.join Pri.join Per.join Cap.join Pmo.join PrE.join Node.join x y
-      in let s x = if is_top x then "TOP" else if is_bot x then "BOT" else short 0 x in M.debug_each @@ "JOIN\t" ^ if equal x y then "EQUAL" else s x ^ "\n\t" ^ s y ^ "\n->\t" ^ s r;  r
-    let meet = op_scheme Pid.meet Pri.meet Per.meet Cap.meet Pmo.meet PrE.meet Node.meet
-  end
-  module G = IntDomain.Booleans
-  module C = D
-
-  let is_single ctx =
-    let fl : BaseDomain.Flag.t = snd (Obj.obj (List.assoc "base" ctx.presub)) in
-    not (BaseDomain.Flag.is_multi fl)
-
-  let part_mode_var = makeGlobalVar "__GOBLINT_ARINC_MUTLI_THREADED" voidPtrType
-
-  let is_main_fun name = List.mem name (List.map Json.string (GobConfig.get_list "mainfun"))
-
-  (* transfer functions *)
-  let assign ctx (lval:lval) (rval:exp) : D.t =
-    ctx.local
-
-  let branch ctx (exp:exp) (tv:bool) : D.t =
-    ctx.local
-
-  let body ctx (f:fundec) : D.t = (* on entering function body -> called for spawned processes *)
-    (* M.debug_each @@ "BODY " ^ f.svar.vname ^" @ "^ string_of_int (!Tracing.current_loc).line; *)
-    if not (is_single ctx || !Goblintutil.global_initialization || ctx.global part_mode_var) then raise Analyses.Deadcode;
-    if is_main_fun f.svar.vname
-    then { ctx.local with node = Node.of_node @@ Option.get !MyCFG.current_node }
-    else ctx.local
-
-  let return ctx (exp:exp option) (f:fundec) : D.t =
-    (* D.callstack List.tl ctx.local *)
-    ctx.local
-
-  let enter ctx (lval: lval option) (f:varinfo) (args:exp list) : (D.t * D.t) list = (* on function calls -> not called for spawned processes *)
-    (* print_endline @@ "ENTER " ^ f.vname ^" @ "^ string_of_int (!Tracing.current_loc).line; (* somehow M.debug_each doesn't print anything here *) *)
-    let d_caller = ctx.local in
-    let d_callee =
-      if is_main_fun f.vname
-      then ctx.local (* mainfun is the init process -> ignore enter here *)
-      else D.callstack_push !Tracing.current_loc ctx.local (* push location onto callee's callstack *)
-    in
-    [d_caller, d_callee]
-
-  let combine ctx (lval:lval option) fexp (f:varinfo) (args:exp list) (au:D.t) : D.t =
-    (* M.debug_each @@ "ctx.local: " ^ D.string_of_callstack ctx.local.callstack ^ ", au: " ^ D.string_of_callstack au.callstack; *)
-    { au with callstack = ctx.local.callstack } (* just keep the caller's callstack *)
-
-
-  (* ARINC utility functions, types and Hashtables for collecting and printing CFG *)
-  let sprint f x = Pretty.sprint 80 (f () x)
-  let string_of_partition_mode = function
-    | 0L -> "IDLE"
-    | 1L -> "COLD_START"
-    | 2L -> "WARM_START"
-    | 3L -> "NORMAL"
-    | _  -> "UNKNOWN!"
-  let string_of_queuing_discipline = function
-    | 0L -> "FIFO"
-    | 1L -> "PRIO"
-    | _  -> "UNKNOWN!"
-  let mode_is_init  i = match Pmo.to_int i with Some 1L | Some 2L -> true | _ -> false
-  let mode_is_multi i = Pmo.to_int i = Some 3L
-  let infinity = 4294967295L (* time value used for infinity *)
-
+  (* ARINC types and Hashtables for collecting CFG *)
   type id = varinfo
   type ids = id list
   type time = int64 (* Maybe use Nativeint which is the same as C long. OCaml int is just 31 or 63 bits wide! *)
@@ -182,13 +22,15 @@ struct
     | CreateSemaphore of id * int64 * int64 * int64 | WaitSemaphore of ids | SignalSemaphore of ids
     | CreateEvent of id | WaitEvent of ids * time | SetEvent of ids | ResetEvent of ids
     | TimedWait of time | PeriodicWait
-  type node = MyCFG.node * callstack
-  type edge = node * action * node
-  let action_of_edge (_, action, _) = action
+  (* callstack for locations *)
+  type callstack = location list
+  type node = MyCFG.node
+  type edge = node * action * callstack * node
+  let action_of_edge (_, action, _, _) = action
   let edges = Hashtbl.create 123
-  let get_edges pid : edge Set.t =
+  let get_edges (pid:id) : edge Set.t =
     Hashtbl.find_default edges pid Set.empty
-  let add_edge pid edge =
+  let add_edge (pid:id) edge =
     Hashtbl.modify_def Set.empty pid (Set.add edge) edges
 
   (* lookup/generate id from resource type and name (needed for LAP_Se_GetXId functions, specified by LAP_Se_CreateX functions during init) *)
@@ -238,74 +80,173 @@ struct
       Hashtbl.replace pnames pname id;
       id
 
+
+  (* Domains *)
+
+  (* Information for one task *)
+  (* Process ID *)
+  module Pid = IntDomain.Flattened
+  (* Priority *)
+  module Pri = IntDomain.Reverse (IntDomain.Lifted) (* TODO reverse? *)
+  (* Period *)
+  module Per = IntDomain.Flattened
+  (* Capacity *)
+  module Cap = IntDomain.Flattened
+
+  (* Information for all tasks *)
+  (* Partition mode *)
+  module Pmo = IntDomain.Flattened
+  (* Preemption lock *)
+  module PrE = IntDomain.Flattened
+  module Node =
+  struct
+    module Base =
+    struct
+      type t = MyCFG.node
+      include Printable.Std
+      include Lattice.StdCousot
+      let short w x = string_of_int (MyCFG.getLoc x).line
+      include Printable.PrintSimple (struct
+        type t' = t
+        let name () = "predecessor node"
+        let short = short
+      end)
+      let equal = Util.equals
+      let hash = Hashtbl.hash
+    end
+    include SetDomain.Make (Base)
+    let of_node node = singleton node
+    (* let is_node = not%is_empty *)
+    (* let to_node = elements *)
+    let string_of node = Base.short 10 node
+  end
+
+  (* define record type here so that fields are accessable outside of D *)
+  type process = { pid: Pid.t; pri: Pri.t; per: Per.t; cap: Cap.t; pmo: Pmo.t; pre: PrE.t; node: Node.t; callstack: callstack }
+  module D =
+  struct
+    type t = process
+    include Printable.Std
+    include Lattice.StdCousot
+
+    (* printing *)
+    let string_of_callstack xs = "["^String.concat ", " (List.map (fun loc -> string_of_int loc.line) xs)^"]"
+    let short w x = Printf.sprintf "{ pid=%s; pri=%s; per=%s; cap=%s; pmo=%s; pre=%s; node=%s; callstack=%s)" (Pid.short 3 x.pid) (Pri.short 3 x.pri) (Per.short 3 x.per) (Cap.short 3 x.cap) (Pmo.short 3 x.pmo) (PrE.short 3 x.pre) (Node.short 80 x.node) (string_of_callstack x.callstack)
+    include Printable.PrintSimple (struct
+      type t' = t
+      let name () = "ARINC state"
+      let short = short
+    end)
+    let toXML_f sf d =
+      let replace_top name = function
+          | Xml.Element (node, [text, n], elems) -> Xml.Element (node, [text, name ^ n], elems)
+          | x -> x
+      in
+      let elems = [ replace_top "PID: "   @@ Pid.toXML  d.pid
+                  ; replace_top "Priority: "  @@ Pri.toXML d.pri
+                  ; replace_top "Period: "  @@ Per.toXML d.per
+                  ; replace_top "Capacity: "  @@ Cap.toXML d.cap
+                  ; replace_top "Partition mode: "  @@ Pmo.toXML d.pmo
+                  ; replace_top "Preemption lock: " @@ PrE.toXML  d.pre ] in
+      Xml.Element ("Node", ["text", "ARINC state"], elems)
+    let toXML s  = toXML_f short s
+    (* Printable.S *)
+    let equal = Util.equals
+    (* let equal x y = let f z = { z with callstack = List.sort_unique compare z.callstack } in Util.equals (f x) (f y) *)
+    let hash = Hashtbl.hash
+
+    (* modify fields *)
+    let pid f d = { d with pid = f d.pid }
+    let pri f d = { d with pri = f d.pri }
+    let per f d = { d with per = f d.per }
+    let cap f d = { d with cap = f d.cap }
+    let pmo f d = { d with pmo = f d.pmo }
+    let pre f d = { d with pre = f d.pre }
+    let node f d = { d with node = f d.node }
+    let callstack f d = { d with callstack = f d.callstack }
+    (* if x is already in the callstack we move it to the front, this way we can do tail on combine *)
+    let callstack_length = 0
+    let callstack_push x d = if List.length d.callstack < callstack_length then callstack (fun xs -> x :: List.remove xs x) d else d
+
+    let bot () = { pid = Pid.bot (); pri = Pri.bot (); per = Per.bot (); cap = Cap.bot (); pmo = Pmo.bot (); pre = PrE.bot (); node = Node.bot (); callstack = [] }
+    let is_bot x = { x with callstack = [] } = bot ()
+    let top () = { pid = Pid.top (); pri = Pri.top (); per = Per.top (); cap = Cap.top (); pmo = Pmo.top (); pre = PrE.top (); node = Node.top (); callstack = [] }
+    (* let is_top x = { x with callstack = [] } = top () *)
+    let is_top x = Pid.is_top x.pid && Pri.is_top x.pri && Per.is_top x.per && Cap.is_top x.cap && Pmo.is_top x.pmo && PrE.is_top x.pre && Node.is_top x.node && x.callstack = []
+
+    let rec is_prefix = function [],_ -> true | x::xs,y::ys when x=y -> is_prefix (xs,ys) | _ -> false
+    (* let leq x y = Pid.leq x.pid y.pid && Pri.leq x.pri y.pri && Per.leq x.per y.per && Cap.leq x.cap y.cap && List.subset compare x.callstack y.callstack && Pmo.leq x.pmo y.pmo && PrE.leq x.pre y.pre *)
+    let leq x y = Pid.leq x.pid y.pid && Pri.leq x.pri y.pri && Per.leq x.per y.per && Cap.leq x.cap y.cap && Pmo.leq x.pmo y.pmo && PrE.leq x.pre y.pre && Node.leq x.node y.node && is_prefix (x.callstack, y.callstack)
+    let join_callstack xs ys = if xs<>ys then M.debug_each @@ "JOIN callstacks " ^ string_of_callstack xs ^ " and " ^ string_of_callstack ys; xs
+    let op_scheme op1 op2 op3 op4 op5 op6 op7 x y: t = { pid = op1 x.pid y.pid; pri = op2 x.pri y.pri; per = op3 x.per y.per; cap = op4 x.cap y.cap; pmo = op5 x.pmo y.pmo; pre = op6 x.pre y.pre; node = op7 x.node y.node; callstack = join_callstack x.callstack y.callstack }
+    let join x y = let r = op_scheme Pid.join Pri.join Per.join Cap.join Pmo.join PrE.join Node.join x y in
+      (* let s x = if is_top x then "TOP" else if is_bot x then "BOT" else short 0 x in M.debug_each @@ "JOIN\t" ^ if equal x y then "EQUAL" else s x ^ "\n\t" ^ s y ^ "\n->\t" ^ s r; *)
+      r
+    let meet = op_scheme Pid.meet Pri.meet Per.meet Cap.meet Pmo.meet PrE.meet Node.meet
+  end
+  module G = IntDomain.Booleans
+  module C = D
+
+  let is_single ctx =
+    let fl : BaseDomain.Flag.t = snd (Obj.obj (List.assoc "base" ctx.presub)) in
+    not (BaseDomain.Flag.is_multi fl)
+
+  let part_mode_var = makeGlobalVar "__GOBLINT_ARINC_MUTLI_THREADED" voidPtrType
+
+  let is_main_fun name = List.mem name (List.map Json.string (GobConfig.get_list "mainfun"))
+
+  (* transfer functions *)
+  let assign ctx (lval:lval) (rval:exp) : D.t =
+    ctx.local
+
+  let branch ctx (exp:exp) (tv:bool) : D.t =
+    ctx.local
+
+  let body ctx (f:fundec) : D.t = (* on entering function body -> called for spawned processes *)
+    (* M.debug_each @@ "BODY " ^ f.svar.vname ^" @ "^ string_of_int (!Tracing.current_loc).line; *)
+    if not (is_single ctx || !Goblintutil.global_initialization || ctx.global part_mode_var) then raise Analyses.Deadcode;
+    let d = ctx.local in
+    if Node.is_bot d.node && Option.is_some !MyCFG.current_node
+    then { d with node = Node.of_node @@ Option.get !MyCFG.current_node }
+    else d
+
+  let return ctx (exp:exp option) (f:fundec) : D.t =
+    (* D.callstack List.tl ctx.local *)
+    ctx.local
+
+  let enter ctx (lval: lval option) (f:varinfo) (args:exp list) : (D.t * D.t) list = (* on function calls -> not called for spawned processes *)
+    (* print_endline @@ "ENTER " ^ f.vname ^" @ "^ string_of_int (!Tracing.current_loc).line; (* somehow M.debug_each doesn't print anything here *) *)
+    let d_caller = ctx.local in
+    let d_callee =
+      if is_main_fun f.vname
+      then ctx.local (* mainfun is the init process -> ignore enter here *)
+      else D.callstack_push !Tracing.current_loc ctx.local (* push location onto callee's callstack *)
+    in
+    [d_caller, d_callee]
+
+  let combine ctx (lval:lval option) fexp (f:varinfo) (args:exp list) (au:D.t) : D.t =
+    (* M.debug_each @@ "ctx.local: " ^ D.string_of_callstack ctx.local.callstack ^ ", au: " ^ D.string_of_callstack au.callstack; *)
+    { au with callstack = ctx.local.callstack } (* just keep the caller's callstack *)
+
+  (* ARINC utility functions *)
+  let sprint f x = Pretty.sprint 80 (f () x)
+  let string_of_partition_mode = function
+    | 0L -> "IDLE"
+    | 1L -> "COLD_START"
+    | 2L -> "WARM_START"
+    | 3L -> "NORMAL"
+    | _  -> "UNKNOWN!"
+  let string_of_queuing_discipline = function
+    | 0L -> "FIFO"
+    | 1L -> "PRIO"
+    | _  -> "UNKNOWN!"
+  let mode_is_init  i = match Pmo.to_int i with Some 1L | Some 2L -> true | _ -> false
+  let mode_is_multi i = Pmo.to_int i = Some 3L
+  let infinity = 4294967295L (* time value used for infinity *)
+
   (* set of processes to spawn once partition mode is set to NORMAL *)
   let processes = ref []
   let add_process p = processes := List.append !processes [p]
-
-  (* printing *)
-  let str_i64 id = string_of_int (i64_to_int id)
-  let str_funs funs = "["^(List.map (fun v -> v.vname) funs |> String.concat ", ")^"]"
-  let str_resource id =
-    match get_by_id id with
-    | Some (Process, "mainfun") ->
-        "mainfun/["^String.concat ", " (List.map Json.string (GobConfig.get_list "mainfun"))^"]"
-    | Some (Process, name) ->
-        name^"/"^str_funs @@ funs_for_process name
-    | Some (resource_type, name) ->
-        name
-    | None -> "Unknown resource"
-  let str_resources ids = "["^(String.concat ", " @@ List.map str_resource ids)^"]"
-  let str_time t = if t = infinity then "∞" else str_i64 t^"ns"
-  let str_action pid = function
-    | LockPreemption -> "LockPreemption"
-    | UnlockPreemption -> "UnlockPreemption"
-    | SetPartitionMode i -> "SetPartitionMode "^string_of_partition_mode i
-    | CreateProcess (id, funs, prio, period, capacity) ->
-        "CreateProcess "^str_resource id^" (funs "^str_funs funs^", prio "^str_i64 prio^", period "^str_time period^", capacity "^str_time capacity^")"
-    | CreateErrorHandler (id, funs) -> "CreateErrorHandler "^str_resource id
-    | Start ids -> "Start "^str_resources ids
-    | Stop ids when ids=[pid] -> "StopSelf"
-    | Stop ids -> "Stop "^str_resources ids
-    | Suspend ids when ids=[pid] -> "SuspendSelf"
-    | Suspend ids -> "Suspend "^str_resources ids
-    | Resume ids -> "Resume "^str_resources ids
-    | CreateBlackboard id -> "CreateBlackboard "^str_resource id
-    | DisplayBlackboard ids -> "DisplayBlackboard "^str_resources ids
-    | ReadBlackboard (ids, timeout) -> "ReadBlackboard "^str_resources ids^" (timeout "^str_time timeout^")"
-    | ClearBlackboard ids -> "ClearBlackboard "^str_resources ids
-    | CreateSemaphore (id, cur, max, queuing) ->
-        "CreateSemaphore "^str_resource id^" ("^str_i64 cur^"/"^str_i64 max^", "^string_of_queuing_discipline queuing^")"
-    | WaitSemaphore ids -> "WaitSemaphore "^str_resources ids
-    | SignalSemaphore ids -> "SignalSemaphore "^str_resources ids
-    | CreateEvent id -> "CreateEvent "^str_resource id
-    | WaitEvent (ids, timeout) -> "WaitEvent "^str_resources ids^" (timeout "^str_time timeout^")"
-    | SetEvent ids -> "SetEvent "^str_resources ids
-    | ResetEvent ids -> "ResetEvent "^str_resources ids
-    | TimedWait t -> "TimedWait "^str_time t
-    | PeriodicWait -> "PeriodicWait"
-  let print_actions () =
-    let print_process pid =
-      let str_node (node, callstack) = Node.string_of node ^ "," ^ D.string_of_callstack callstack in
-      let str_edge (a, action, b) = str_node a ^ " -> " ^ str_action pid action ^ " -> " ^ str_node b in
-      let xs = Set.map str_edge (get_edges pid) in
-      M.debug @@ str_resource pid^" ->\n\t"^String.concat "\n\t" (Set.elements xs)
-    in
-    Hashtbl.keys edges |> Enum.iter print_process
-  let save_dot_graph () =
-    let dot_process pid =
-      (* 1 -> w1 [label="fopen(_)"]; *)
-      let str_node (node, callstack) = Node.string_of node in (*  ^ "," ^ D.string_of_callstack callstack *)
-      let str_edge (a, action, b) = str_node a ^ "\t->\t" ^ str_node b ^ "\t[label=\"" ^ str_action pid action ^ "\"]" in
-      let xs = Set.map str_edge (get_edges pid) |> Set.elements in
-      ("// "^str_resource pid) :: xs
-    in
-    let lines = Hashtbl.keys edges |> List.of_enum |> List.map dot_process |> List.concat in
-    let dot_graph = String.concat "\n  " ("digraph file {"::lines) ^ "\n}" in
-    output_file "result/arinc.dot" dot_graph;
-    print_endline ("saved graph as "^Sys.getcwd ()^"/result/arinc.dot")
-  let finalize () =
-    print_actions ();
-    save_dot_graph ()
 
   let special ctx (lval: lval option) (f:varinfo) (arglist:exp list) : D.t =
     let d : D.t = ctx.local in
@@ -354,10 +295,8 @@ struct
     let current_node = Option.get !MyCFG.current_node in
     (* let current_callstack = !Tracing.current_loc :: d.callstack in *)
     let add_action action d =
-      let a = Node.to_node d.node, d.callstack in
-      let b = current_node, d.callstack in
-      add_edge curpid (a, action, b);
-      { d with node = Node.of_node @@ fst b }
+      Node.iter (fun node -> add_edge curpid (node, action, d.callstack, current_node)) d.node;
+      { d with node = Node.of_node current_node }
     in
     let arglist = List.map (stripCasts%(constFold false)) arglist in
     match f.vname, arglist with
@@ -433,7 +372,7 @@ struct
               if M.tracing then M.tracel "arinc" "starting a thread %a with priority '%Ld' \n" Queries.LS.pretty funs pri;
               let fun_list = funs |> Queries.LS.elements |> List.map fst in
               let spawn f =
-                let f_d pre = { pid = Pid.of_int (get_pid name); pri = Pri.of_int pri; per = Per.of_int per; cap = Cap.of_int cap; callstack = d.callstack; pmo = Pmo.of_int 3L; pre = pre; node = Node.of_node current_node } in (* int64 -> D.t *)
+                let f_d pre = { pid = Pid.of_int (get_pid name); pri = Pri.of_int pri; per = Per.of_int per; cap = Cap.of_int cap; callstack = []; pmo = Pmo.of_int 3L; pre = pre; node = Node.bot () } in (* int64 -> D.t *)
                 add_process (f,f_d)
               in
               List.iter spawn fun_list;
@@ -552,7 +491,7 @@ struct
           | `LvalSet ls when not (Queries.LS.is_top ls) && not (Queries.LS.mem (dummyFunDec.svar,`NoOffset) ls) ->
               let funs = Queries.LS.filter (fun l -> isFunctionType (fst l).vtype) ls |> Queries.LS.elements |> List.map fst in
               let spawn f =
-                let f_d pre = { pid = Pid.of_int (get_pid name); pri = Pri.of_int infinity; per = Per.of_int infinity; cap = Cap.of_int infinity; callstack = d.callstack; pmo = Pmo.of_int 3L; pre = pre; node = Node.of_node current_node } in (* int64 -> D.t *)
+                let f_d pre = { pid = Pid.of_int (get_pid name); pri = Pri.of_int infinity; per = Per.of_int infinity; cap = Cap.of_int infinity; callstack = []; pmo = Pmo.of_int 3L; pre = pre; node = Node.bot () } in (* int64 -> D.t *)
                 add_process (f,f_d)
               in
               List.iter spawn funs;
@@ -578,6 +517,73 @@ struct
       | Queries.IsPrivate _ ->
           `Bool ((PrE.to_int d.pre <> Some 0L && PrE.to_int d.pre <> None) || mode_is_init d.pmo)
       | _ -> Queries.Result.top ()
+
+  (* ARINC output *)
+  let str_i64 id = string_of_int (i64_to_int id)
+  let str_funs funs = "["^(List.map (fun v -> v.vname) funs |> String.concat ", ")^"]"
+  let str_resource id =
+    match get_by_id id with
+    | Some (Process, "mainfun") ->
+        "mainfun/["^String.concat ", " (List.map Json.string (GobConfig.get_list "mainfun"))^"]"
+    | Some (Process, name) ->
+        name^"/"^str_funs @@ funs_for_process name
+    | Some (resource_type, name) ->
+        name
+    | None -> "Unknown resource"
+  let str_resources ids = "["^(String.concat ", " @@ List.map str_resource ids)^"]"
+  let str_time t = if t = infinity then "∞" else str_i64 t^"ns"
+  let str_action pid = function
+    | LockPreemption -> "LockPreemption"
+    | UnlockPreemption -> "UnlockPreemption"
+    | SetPartitionMode i -> "SetPartitionMode "^string_of_partition_mode i
+    | CreateProcess (id, funs, prio, period, capacity) ->
+        "CreateProcess "^str_resource id^" (funs "^str_funs funs^", prio "^str_i64 prio^", period "^str_time period^", capacity "^str_time capacity^")"
+    | CreateErrorHandler (id, funs) -> "CreateErrorHandler "^str_resource id
+    | Start ids -> "Start "^str_resources ids
+    | Stop ids when ids=[pid] -> "StopSelf"
+    | Stop ids -> "Stop "^str_resources ids
+    | Suspend ids when ids=[pid] -> "SuspendSelf"
+    | Suspend ids -> "Suspend "^str_resources ids
+    | Resume ids -> "Resume "^str_resources ids
+    | CreateBlackboard id -> "CreateBlackboard "^str_resource id
+    | DisplayBlackboard ids -> "DisplayBlackboard "^str_resources ids
+    | ReadBlackboard (ids, timeout) -> "ReadBlackboard "^str_resources ids^" (timeout "^str_time timeout^")"
+    | ClearBlackboard ids -> "ClearBlackboard "^str_resources ids
+    | CreateSemaphore (id, cur, max, queuing) ->
+        "CreateSemaphore "^str_resource id^" ("^str_i64 cur^"/"^str_i64 max^", "^string_of_queuing_discipline queuing^")"
+    | WaitSemaphore ids -> "WaitSemaphore "^str_resources ids
+    | SignalSemaphore ids -> "SignalSemaphore "^str_resources ids
+    | CreateEvent id -> "CreateEvent "^str_resource id
+    | WaitEvent (ids, timeout) -> "WaitEvent "^str_resources ids^" (timeout "^str_time timeout^")"
+    | SetEvent ids -> "SetEvent "^str_resources ids
+    | ResetEvent ids -> "ResetEvent "^str_resources ids
+    | TimedWait t -> "TimedWait "^str_time t
+    | PeriodicWait -> "PeriodicWait"
+  let str_node node = Node.string_of node
+  let str_callstack cs = if List.is_empty cs then "" else " cs=" ^ D.string_of_callstack cs
+  let print_actions () =
+    let print_process pid =
+      let str_edge (a, action, cs, b) = str_node a ^ " -> " ^ str_action pid action ^ str_callstack cs ^ " -> " ^ str_node b in
+      let xs = Set.map str_edge (get_edges pid) in
+      M.debug @@ str_resource pid^" ->\n\t"^String.concat "\n\t" (Set.elements xs)
+    in
+    Hashtbl.keys edges |> Enum.iter print_process
+  let save_dot_graph () =
+    let dot_process pid =
+      (* 1 -> w1 [label="fopen(_)"]; *)
+      let str_node x = "\"" ^ str_node x ^ "\"" in (* quote node names for dot b/c of callstack *)
+      let str_edge (a, action, cs, b) = str_node a ^ "\t->\t" ^ str_node b ^ "\t[label=\"" ^ str_action pid action ^ str_callstack cs ^ "\"]" in
+      let xs = Set.map str_edge (get_edges pid) |> Set.elements in
+      ("// "^str_resource pid) :: xs
+    in
+    let lines = Hashtbl.keys edges |> List.of_enum |> List.map dot_process |> List.concat in
+    let dot_graph = String.concat "\n  " ("digraph file {"::lines) ^ "\n}" in
+    let path = "result/arinc.dot" in
+    output_file path dot_graph;
+    print_endline ("saved graph as "^Sys.getcwd ()^"/"^path)
+  let finalize () =
+    print_actions ();
+    if GobConfig.get_bool "ana.arinc.dot" then save_dot_graph ()
 
   let startstate v = { (D.bot ()) with  pid = Pid.of_int 0L; pmo = Pmo.of_int 1L; pre = PrE.of_int 0L; node = Node.bot () }
   let otherstate v = D.bot ()
