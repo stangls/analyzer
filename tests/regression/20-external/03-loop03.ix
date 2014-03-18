@@ -1,8 +1,11 @@
 <ix version="1.0">
 
+  <tool>none, human</tool>
+
   <!--
     let's take a look at "changing" assertions
     inside a loop
+    todo.
   -->
 
   <invariant>

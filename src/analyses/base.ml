@@ -313,9 +313,7 @@ struct
       (* The main function! *)
       match a1,a2 with
         (* For the integer values, we apply the domain operator *)
-        | `Int v1, `Int v2 ->
-          Printf.printf "binop %s [op] %s\n" (Pretty.sprint ~width:80 (ID.pretty () v1)) (Pretty.sprint ~width:80 (ID.pretty () v2));
-          `Int (the_op v1 v2)
+        | `Int v1, `Int v2 -> `Int (the_op v1 v2)
         (* For address +/- value, we try to do some elementary ptr arithmetic *)
         | `Address p, `Int n  -> begin
             try match op with
@@ -1169,7 +1167,6 @@ struct
     || not (AD.is_bot (AD.meet gval1 gval2)) )
     
   let query ctx (q:Q.t) = 
-    Printf.printf "base.query\n";
     match q with
       | Q.EvalFunvar e ->
         begin
@@ -1335,7 +1332,6 @@ struct
       | _ ->  []
 
   let assert_fn ctx e warn change = 
-    Printf.printf "assert_fn\n";
     let check_assert e st = 
       match eval_rv ctx.ask ctx.global st e with 
         | `Int v when ID.is_bool v -> 
@@ -1369,7 +1365,6 @@ struct
           end
 
   let special ctx (lv:lval option) (f: varinfo) (args: exp list) = 
-    Printf.printf "base.special\n";
 (*    let heap_var = heap_var !Tracing.current_loc in*)
     let forks = forkfun ctx lv f args in
     let spawn (x,y) = ctx.spawn x y in List.iter spawn forks ;
