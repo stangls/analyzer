@@ -1,5 +1,7 @@
 <ix version="1.0">
 
+  <tool>none, human</tool>
+
   <!--
     external information about the loop and it's variables:w
     we supply information before the actual assertion, so that

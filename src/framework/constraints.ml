@@ -45,8 +45,7 @@ struct
     let d, diff = S.sync (conv ctx) in
     D.lift d, diff
     
-  let query ctx q = 
-    S.query (conv ctx) q
+  let query ctx q = S.query (conv ctx) q
     
   let assign ctx lv e = 
     D.lift @@ S.assign (conv ctx) lv e
@@ -251,42 +250,48 @@ struct
 
   let tf getl sidel getg sideg edge d = 
     begin match edge with
-      | Assign (lv,rv) -> tf_assign lv rv
-      | Proc (r,f,ars) -> tf_proc r f ars
-      | Entry f        -> tf_entry f
-      | Ret (r,fd)     -> tf_ret r fd
-      | Test (p,b)     -> tf_test p b
+      | Assign (lv,rv) ->  tf_assign lv rv
+      | Proc (r,f,ars) ->  tf_proc r f ars
+      | Entry f        ->  tf_entry f
+      | Ret (r,fd)     ->  tf_ret r fd
+      | Test (p,b)     ->  tf_test p b
       | ASM _          -> fun _ _ _ _ d -> ignore (warn "ASM statement ignored."); d
       | Skip           -> fun _ _ _ _ d -> d
-      | SelfLoop       -> tf_loop 
+      | SelfLoop       ->  tf_loop 
     end getl sidel getg sideg d
 
   (*
     inject assertions for invariants by substituting state d of variable (u,c) with a new one d',
     created by execution of assertion-effects.
     the assertions come from the Extern module in the form of Cil expressions.
+    we go from loc1 to loc2.
   *)
-  let tf getl sidel getg sideg edge d loc =
-    if get_bool "ext_read" then begin
-      (* determine expressions and assertion-function and execute (procedure call) *)
-      let (assert_fun_exp,expr_list) = Extern.assertion_exprs loc
-      (* recompute a given state [s] according to an invariant-list [expr_list] by applying a modified get-local-function *)
-      in let rec change_state expr_list (s:S.D.t):S.D.t = match expr_list with
-        | e::es  ->
-          let new_s = tf_proc None assert_fun_exp [e] getl sidel getg sideg s
-          in change_state es new_s
-        | []    ->  s
-      (* modified get-local-function for actual tf *)
-      in tf getl sidel getg sideg edge ( change_state expr_list d )
-    end else
-      tf getl sidel getg sideg edge d
+  let tf getl sidel getg sideg edge d loc1 loc2 =
+    let new_d = tf getl sidel getg sideg edge d
+    in
+      if get_bool "ext_read" then begin
+        (* determine expressions and assertion-function and execute (procedure call) *)
+        let (assert_fun_exp,expr_list) = Extern.assertion_exprs loc1 loc2 edge
+        (* recompute a given state [s] according to an invariant-list [expr_list] by applying a modified get-local-function *)
+        in let rec change_state expr_list (s:S.D.t):S.D.t = match expr_list with
+          | e::es  ->
+            if get_bool "dbg.debug" then
+              Printf.printf "assertion %s\n" (Pretty.sprint ~width:80 (d_exp () e));
+            let new_s = tf_proc None assert_fun_exp [e] getl sidel getg sideg s
+            in change_state es new_s
+          | []    ->  s
+        (* modified get-local-function for actual tf *)
+        in 
+          change_state expr_list new_d
+      end else
+        new_d
     
   let tf getl sidel getg sideg (loc,edge) d (f,t) =
     let old_loc  = !Tracing.current_loc in
     let old_loc2 = !Tracing.next_loc in
     let _       = Tracing.current_loc := f in
     let _       = Tracing.next_loc := t in
-    let d       = tf getl sidel getg sideg edge d loc in
+    let d       = tf getl sidel getg sideg edge d f t in
     let _       = Tracing.current_loc := old_loc in 
     let _       = Tracing.next_loc := old_loc2 in 
       d

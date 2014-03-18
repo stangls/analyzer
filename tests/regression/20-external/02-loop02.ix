@@ -1,5 +1,7 @@
 <ix version="1.0">
 
+  <tool>none, human</tool>
+
   <!--
     compared to 01-loop.ix
     we create more invariants at one location

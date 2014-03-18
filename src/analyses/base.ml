@@ -895,7 +895,7 @@ struct
     in
       (* Before returning the result we do a side-effect: Create base-invariants *)
       let var_get ctx var = eval_rv ctx.ask ctx.global ctx.local (Lval(Var(var),NoOffset))
-      in Extern.create_base_invariants var_get ctx;
+      in Extern.create_base_invariants var_get {ctx with local=ret} (Some f.svar.vname); (* todo: decide if ctx with or without changed local value! *)
       ret
 
   let return ctx exp fundec =
@@ -1171,7 +1171,7 @@ struct
       | Q.EvalFunvar e ->
         begin
           let fs = eval_funvar ctx e in
-(*          Messages.report ("Base: I should know it! "^string_of_int (List.length fs));*)
+          (*Messages.report ("Base: I should know it! "^string_of_int (List.length fs));*)
           `LvalSet (List.fold_left (fun xs v -> Q.LS.add (v,`NoOffset) xs) (Q.LS.empty ()) fs)
         end
       | Q.EvalInt e -> begin

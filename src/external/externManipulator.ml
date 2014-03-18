@@ -21,7 +21,7 @@ module M1 : Manipulator = struct
   let filter_func invs f func =
     let map (is,ts) inv =
       match inv with
-        | ( (FunctionEntry (pf,pfunc)), v ) when (String.compare pfunc func = 0 ) && (String.compare pf f = 0) -> (inv::is,ts) (* todo: use string hashes *)
+        | ( (FunctionEntry (pf,pfunc,_,_)), v ) when (String.compare pfunc func = 0 ) && (String.compare pf f = 0) -> (inv::is,ts) (* todo: use string hashes *) (* location information is irrelevant : in C no function overloading. name unambiguously identifies function decleration! *)
         | _ -> (is,inv::ts)
     in List.fold_left map ([],[]) invs
 
@@ -33,10 +33,11 @@ module M1 : Manipulator = struct
       inherit nopCilVisitor
       val mutable invs:invariant list = invariants
       val mutable exprs:(cil_invariant*invariant list) list = []
+      val mutable fun_exprs:(cil_fun_invariant*invariant list) list = []
       val mutable prev_loc:Cil.location = { line=0; file=""; byte=0 }
       val mutable recent_liveset = None
       val mutable filtered_invariants:invariant list = []
-      method result = exprs
+      method result = (exprs,fun_exprs)
       (*
         create cil expressions from list of location-matched invariants at location loc with known liveset of variables.
         stores actual result in exprs and returns tuple of list of not translated (=filtered) invariants
@@ -183,22 +184,12 @@ module M1 : Manipulator = struct
               | [] ->  (exprsAlreadyCreated,used_invariants,filtered_invariants)
           in let (exprsCreated,used_invariants,filtered_invariants) = get_exprs invariants [] [] []
           in begin
-            begin
-              if true then begin
-                if (get_bool "dbg.verbose" && (List.length exprsCreated) > 0) then Printf.printf "exprs created : %s\n" ( Pretty.sprint ~width:80 ( Pretty.docList (d_exp ()) () exprsCreated ) );
-                let rec addExprsAndUI exprs usedInvariants exprsAgg = match exprs,usedInvariants with
-                | e::es,ui::uis -> addExprsAndUI es uis (((loc,e),[ui])::exprsAgg)
-                | [],[] -> exprsAgg
-                | es,uis -> Printf.printf "ERROR: Internal error. There are %d exprs and %d used invariants. Look at the source.\n" (List.length es) (List.length uis); exprsAgg
-                in exprs <- addExprsAndUI exprsCreated used_invariants exprs
-              end else
-                match merge_exprs exprsCreated (Fb LAnd) with
-                | None -> ()
-                | Some e -> begin
-                    if (get_bool "dbg.verbose") then Printf.printf "expr created : %s\n" ( Pretty.sprint ~width:80 ( d_exp () e ) );
-                    exprs <- ((loc,e),used_invariants)::exprs
-                  end
-            end;
+            if (get_bool "dbg.verbose" && (List.length exprsCreated) > 0) then Printf.printf "exprs created : %s\n" ( Pretty.sprint ~width:80 ( Pretty.docList (d_exp ()) () exprsCreated ) );
+            let rec addExprsAndUI exprs usedInvariants exprsAgg = match exprs,usedInvariants with
+            | e::es,ui::uis -> addExprsAndUI es uis (((loc,e),[ui])::exprsAgg)
+            | [],[] -> exprsAgg
+            | es,uis -> Printf.printf "ERROR: Internal error. There are %d exprs and %d used invariants. Look at the source.\n" (List.length es) (List.length uis); exprsAgg
+            in exprs <- addExprsAndUI exprsCreated used_invariants exprs;
             filtered_invariants
           end
         end

@@ -28,10 +28,12 @@ struct
           xml_simple "line" (string_of_int line);
           xml_simple "column" (string_of_int col)
         ]
-      | FunctionEntry(file,func) ->
+      | FunctionEntry(file,func,line,col) ->
         [
           xml_simple "file" (rel_path file);
-          xml_simple "function-entry" func
+          xml_simple "function-entry" func;
+          xml_simple "line" (string_of_int line);
+          xml_simple "column" (string_of_int col)
         ]
     )
 

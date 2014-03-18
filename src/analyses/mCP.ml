@@ -436,8 +436,7 @@ struct
         ; sideg  = (fun v g    -> sides  := (v, (n, repr g)) :: !sides)
         ; assign = (fun ?name _ -> failwith "Cannot \"assign\" in query context.")
         } 
-      in
-      Queries.Result.meet a @@ S.query ctx' q
+      in Queries.Result.meet a @@ S.query ctx' q
     in
       let x = fold_left f `Top @@ spec_list ctx.local in
       do_sideg ctx !sides;
