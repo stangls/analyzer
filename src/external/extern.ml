@@ -23,6 +23,7 @@ exception InternalError
 
 (* storage for converted variants *)
 let loaded_invariants = ref ([]:cil_invariant list)
+let loaded_fun_invariants = ref ([]:cil_fun_invariant list)
 (* type of assertion-functions *)
 let assert_type = TFun(Cil.voidType,Some ["expression",Cil.intType,[]],false,[])
 (* artificial assertion function only used internally *)
@@ -47,7 +48,7 @@ let verify_invariants = true
     ext_readFile : string   (additional) filename to read from with the configured readers (see above)
 *)
 let init merged_AST cFileNames =
-  let aggregate_cil_invariants inv_getter agg get_param : cil_invariant list = 
+  let aggregate_cil_invariants inv_getter (agg,fun_agg) get_param : cil_invariant list * cil_fun_invariant list = 
     match inv_getter get_param with
       | Some invariants ->
         if get_bool "dbg.verbose" then begin
@@ -69,16 +70,19 @@ let init merged_AST cFileNames =
             end
           else
             invariants
-        in let (cil_invariants,transformed_invariants) = List.split (M.transform_to_cil invariants merged_AST)
+        in let (invs,fun_invs) = M.transform_to_cil invariants merged_AST
+        in let (cil_invariants,transformed_invariants) = List.split invs
+           and (cil_fun_invariants,transformed_fun_invariants) = List.split fun_invs
         in
           if get_bool "dbg.verbose" then begin
             let transformed_invariants = List.concat transformed_invariants
-            in let num_transformed = Helper.num_var_invariants ( transformed_invariants )
-            in let num_v_transformed = Helper.num_var_values ( transformed_invariants )
+            and transformed_fun_invariants = List.concat transformed_fun_invariants
+            in let num_transformed = Helper.num_var_invariants ( transformed_invariants ) + Helper.num_var_invariants ( transformed_fun_invariants )
+               and num_v_transformed = Helper.num_var_values ( transformed_invariants ) + Helper.num_var_values ( transformed_fun_invariants )
             in Printf.printf "From the above, %d assert-expressions could be developed from %d invariants ( %d values ).\n" ( List.length cil_invariants ) num_transformed num_v_transformed;
           end;
-          cil_invariants @ agg
-      | None            -> agg
+          (cil_invariants @ agg, cil_fun_invariants @ fun_agg)
+      | None            -> (agg,fun_agg)
   in let create_exp var = Cil.Lval(Cil.Var var,Cil.NoOffset)
   in let filter_assert = function
     | GVarDecl(varinfo,_) when ( String.compare varinfo.vname "assert" = 0) && ( varinfo.vtype = assert_type ) ->
@@ -86,7 +90,10 @@ let init merged_AST cFileNames =
     | _ -> false
   in begin
     if get_bool "ext_read" then
-      loaded_invariants := List.fold_left (aggregate_cil_invariants IR.of_c_file) (aggregate_cil_invariants IR.of_file [] (get_string "ext_readFile")) cFileNames;
+      let (invs,fun_invs) = List.fold_left (aggregate_cil_invariants IR.of_c_file) (aggregate_cil_invariants IR.of_file ([],[]) (get_string "ext_readFile")) cFileNames
+      in
+        loaded_invariants := invs;
+        loaded_fun_invariants := fun_invs;
     if use_intern_assert then begin
       assert_fun := Some (create_exp intern_assert)
     end else begin
@@ -111,9 +118,17 @@ let get_loc_inv_expr (loc_from:Cil.location) (loc:Cil.location) : Cil.exp list =
     if get_bool "dbg.verbose" then
       Printf.printf "getting invariant expressions at %s\n" ( Pretty.sprint ~width:80 (d_loc () loc) );
     let filter_fun (loc',_:cil_invariant) = ( loc.line=loc'.line && (String.compare loc.file loc'.file = 0) )
-    in let get_expr (loc',expr) = expr
+    in let get_expr (_,expr) = expr
     in List.map get_expr (List.filter filter_fun !loaded_invariants)
   end
+
+let get_func_inv_expr (function_name:string) : Cil.exp list =
+  if get_bool "dbg.verbose" then
+    Printf.printf "getting invariant expressions for function entry %s\n" function_name;
+  let filter_fun (fdecl,_) = (String.compare fdecl.svar.vname function_name = 0)
+  in let get_expr (_,expr) = expr
+  in List.map get_expr (List.filter filter_fun !loaded_fun_invariants)
+  
 
 (*
   retrieve assertion expression and list of expressions to assert which should be used
@@ -122,15 +137,16 @@ let get_loc_inv_expr (loc_from:Cil.location) (loc:Cil.location) : Cil.exp list =
 let assertion_exprs (loc_from:Cil.location) (loc:Cil.location) edge : (Cil.exp * Cil.exp list) =
   match !assert_fun with
   | Some assert_fun_exp ->
-    begin
-      (* only certain edges may have assertions after them *)
-      match edge with
-      | Assign(_,_) | Proc(_,_,_) | Entry(_) | Test(_,_) | ASM(_) -> assert_fun_exp , get_loc_inv_expr loc_from loc
-      | Ret (_,_) | Skip | SelfLoop ->
+    ( assert_fun_exp
+    ,  match edge with 
+      | Assign(_,_) | Proc(_,_,_) | Test(_,_) | ASM(_) -> get_loc_inv_expr loc_from loc
+      | Entry(f) -> (* entry-functions may have further invariants *)
+        (get_func_inv_expr f.svar.vname)@(get_loc_inv_expr loc_from loc)
+      | Ret (_,_) | Skip | SelfLoop -> (* some edges may not have assertions after them *)
         if get_bool "dbg.verbose" then
           Printf.printf "not getting invariant expressions at %s for this kind of edge.\n" ( Pretty.sprint ~width:80 (d_loc () loc) );
-        assert_fun_exp,[]
-    end
+        []
+    )
   | None -> raise InternalError
 
 
@@ -142,11 +158,12 @@ let assertion_exprs (loc_from:Cil.location) (loc:Cil.location) edge : (Cil.exp *
 
 module BI = BaseInvariants.S
 
-  (* find the location for these new invariants *)
-let current_location (_:unit) =
+(* find the location for these new invariants *)
+let creation_location (_:unit) =
   let loc = !Tracing.next_loc
   in
-    Printf.printf "invariant location: %s (byte offset %d)\n" ( Pretty.sprint ~width:80 (d_loc () loc) ) loc.byte;
+    if get_bool "dbg.verbose" then
+      Printf.printf "invariant creation location: %s (byte offset %d)\n" ( Pretty.sprint ~width:80 (d_loc () loc) ) loc.byte;
     loc
 
 (*
@@ -154,9 +171,9 @@ let current_location (_:unit) =
   only if we are in the verifying stage
   and we have a filename to write to
 *)
-let create_base_invariants var_get ctx =
+let create_base_invariants var_get ctx function_entry =
   if (String.length (get_string "ext_writeFile") != 0) && !Goblintutil.in_verifying_stage then
-    BI.store (current_location ()) (var_get,ctx)
+    BI.store (creation_location ()) function_entry (var_get,ctx)
 type base_ctx = (BaseDomain.Dom.t,BaseDomain.VD.t) Analyses.ctx
 
 let write_invariants (_:unit) : unit =

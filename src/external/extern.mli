@@ -10,9 +10,15 @@ val assertion_exprs : Cil.location -> Cil.location -> MyCFG.edge -> Cil.exp * Ci
 (* internally used assertion-function *)
 val intern_assert : Cil.varinfo
 
-(* create invariants in base analysis *)
+(*
+  create invariants in base analysis
+  parameters:
+    * function to retrieve values of variables
+    * context (used to iterate over the variables)
+    * None if no function-entry, Some x if it is a function-entry to function f
+*)
 type base_ctx = (BaseDomain.Dom.t,BaseDomain.VD.t) Analyses.ctx
-val create_base_invariants : ( base_ctx -> Cil.varinfo -> BaseDomain.VD.t ) -> base_ctx -> unit
+val create_base_invariants : ( base_ctx -> Cil.varinfo -> BaseDomain.VD.t ) -> base_ctx -> string option -> unit
 
 (* write out all created invariants *)
 val write_invariants : unit -> unit

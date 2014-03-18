@@ -31,12 +31,15 @@ type value =
 type location =
     (* file, line, column *)
     Position of string * int * int
-    (* filename, functionName *)
-  | FunctionEntry of string * string
+    (* filename, functionName, line, column *)
+  | FunctionEntry of string * string * int * int
 
 type var_invariant = variable*value
 type invariant = location * var_invariant list
+(* invariant as cil expression *)
 type cil_invariant = Cil.location * Cil.exp
+(* function entry invariant as cil expression *)
+type cil_fun_invariant = Cil.fundec * Cil.exp
 
 (* pretty printers *)
 let d_i = indent 2
@@ -72,9 +75,11 @@ let d_location (l:location) :doc = match l with
     text "line   : " ++ num line ++ text "," ++ break ++
     text "column : " ++ num col ++ text "," ++ break
   ))++text " )"
-| FunctionEntry (file,fname) -> (text "FunctionEntry (")++break++(d_i (
+| FunctionEntry (file,fname,line,col) -> (text "FunctionEntry (")++break++(d_i (
     text "file     : " ++ text file ++ text "," ++ break ++
-    text "function : " ++ text fname ++ break
+    text "function : " ++ text fname ++ break ++
+    text "line   : " ++ num line ++ text "," ++ break ++
+    text "column : " ++ num col ++ text "," ++ break
   ))++text ")"
 let d_var_invariant (var,value) =
   text "( " ++ d_variable var ++ text ", " ++ d_value value ++ text " )"
@@ -86,6 +91,11 @@ let d_invariant (loc,varInvList) =
 let d_cil_invariant ((cl,ce):cil_invariant) :doc =
   text "(" ++ break ++ d_i (
     d_loc () cl ++ text ", " ++ break ++
+    d_exp () ce ++ break
+  ) ++ text ")"
+let d_cil_fun_invariant ((cf,ce):cil_fun_invariant) :doc =
+  text "(" ++ break ++ d_i (
+    text cf.svar.vname ++ text " ( @ " ++ d_loc () cf.svar.vdecl ++ text " ), " ++ break ++
     d_exp () ce ++ break
   ) ++ text ")"
 
@@ -106,9 +116,11 @@ module type Manipulator =
 sig
   type t = invariant list
   (*
-    given a cil file, transform invariants to cil_invariants (with it's original invariants attached).
+    given a cil file, transform invariants to
+    * cil_invariants at locations (with their original invariants attached)
+    * cil_fun_invariants at function-entries (with their original invariants attached)
   *)
-  val transform_to_cil : t -> file -> (cil_invariant*t) list
+  val transform_to_cil : t -> file -> (cil_invariant*t) list * (cil_fun_invariant*t) list
   (*
     returns a tuple of
     * all invariants at a certain position in a file (1st parameter)
@@ -176,9 +188,15 @@ module type InvariantsCreator = sig
   val create : unit -> t
   (*
     store a (maybe incomplete) invariant.
-    multiple invariants may be stored at the same location
+    multiple invariants may be stored at the same location.
+    parameters:
+      * storage
+      * location
+      * Some x = function entry to function x, None = no function entry
+      * variable to store information about
+      * value (information to store)
   *)
-  val add : t -> Cil.location -> Cil.varinfo -> d -> unit
+  val add : t -> Cil.location -> string option -> Cil.varinfo -> d -> unit
   (*
     retrieve all invariants
   *)
@@ -193,8 +211,14 @@ end
 
 module type InvariantsCreationHelper = sig
   type t
-  (* create invariants from t at given location. *)
-  val store : Cil.location -> t -> unit
+  (*
+    create invariants from t at given location.
+    parameters:
+      * location
+      * Some x = function entry to function x, None = no function entry
+      * information to use to create invariants from
+  *)
+  val store : Cil.location -> string option -> t -> unit
   (* retrieve actual invariants *)
   val get_invariants : unit -> invariant list
 end

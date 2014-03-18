@@ -25,6 +25,11 @@ end
 type ctx = (BaseDomain.Dom.t,VD.t) Analyses.ctx
 type st = ( ctx -> Cil.varinfo -> VD.t ) * ctx
 
+(*
+  storage for base-invariants.
+  relies on a hashtable invariants creator.
+*)
+
 module S : (InvariantsCreationHelper with type t = st ) = struct
   type t = st
 
@@ -37,14 +42,13 @@ module S : (InvariantsCreationHelper with type t = st ) = struct
     create invariants within some HashTblInvariantsCreator.
     the value comes from the base-analysis' right-hand side evaluation.
   *)
-  let store loc ((var_get,ctx):t) : unit =
+  let store loc function_entry ((var_get,ctx):t) : unit =
     let handle_entry var vd_value =
       let value = var_get ctx var
-      in BIC.add baseInvariants loc var value
+      in BIC.add baseInvariants loc function_entry var value
     and (cpa,_) = ctx.local
     in BaseDomain.CPA.iter (handle_entry) cpa
 
-  let get_invariants (_:unit) =
-    BIC.retrieve baseInvariants
+  let get_invariants (_:unit) = BIC.retrieve baseInvariants
 
 end

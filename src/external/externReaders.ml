@@ -69,13 +69,15 @@ struct
               and column =
                 try Some( int_of_string (element_value (get_element "orig-column" node)) ) with Not_found ->
                 try Some( int_of_string (element_value (get_element "org-column" node)) ) with Not_found ->
-                try Some( int_of_string (element_value (get_element "column" node)) ) with Not_found -> None
+                try Some( int_of_string (element_value (get_element "column" node)) ) with Not_found -> Some 1
+              and func =
+                try Some( element_value (get_element "function-entry" node) ) with Not_found -> None
               in begin
-                match file,line,column with
-                | Some file, Some line, Some col ->
+                match file,func,line,column with
+                | Some file, Some func, Some line, Some col ->
+                  loc:=Some (FunctionEntry( file, func, line, col ))
+                | Some file, None, Some line, Some col ->
                   loc:=Some (Position( file, line, col ))
-                | Some file, Some line, None ->
-                  loc:=Some (Position( file, line, 0 ))
                 | _ -> ()
               end;
               var_invariants

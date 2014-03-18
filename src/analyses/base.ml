@@ -895,7 +895,7 @@ struct
     in
       (* Before returning the result we do a side-effect: Create base-invariants *)
       let var_get ctx var = eval_rv ctx.ask ctx.global ctx.local (Lval(Var(var),NoOffset))
-      in Extern.create_base_invariants var_get ctx;
+      in Extern.create_base_invariants var_get {ctx with local=ret} (Some f.svar.vname); (* todo: decide if ctx with or without changed local value! *)
       ret
 
   let return ctx exp fundec =
