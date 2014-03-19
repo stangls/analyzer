@@ -224,7 +224,7 @@ module M1 : Manipulator = struct
           end else begin
             (* match invariants against this location *)
             let (matched_invs,unmatched_invs) = filter_pos invs loc.file prev_loc.line max_int loc.line max_int
-            (* translate matched expressions to expressions *)
+            (* translate matched invariants to expressions *)
             in let (exprsCreated,used_invs,filtered_invs) = this#translate2exprs matched_invs loc
             in (* update fields of this object *)
               exprs <- addExprsAndUsedInvariants loc exprsCreated used_invs exprs;
@@ -243,20 +243,25 @@ module M1 : Manipulator = struct
         print_location loc ~name:"func";
         prev_loc <- loc;
         computeLiveness func;
-        (*
-          we could use the liveset of the first statement, but that would be too many (including local variables)
-          recent_liveset <- getLiveSet (List.hd func.sallstmts).sid;
-        *)
-        let ls = List.fold_left (fun a b -> VS.add b a) VS.empty func.sformals
-        in recent_liveset <- Some ls;
-        (* match invariants against this function-name *)
-        let (matched_invs,unmatched_invs) = filter_func invs loc.file func.svar.vname
-        (* translate matched expressions to expressions *)
-        in let (exprsCreated,used_invs,filtered_invs) = this#translate2exprs matched_invs loc
-        in (* update fields of this object *)
-          fun_exprs <- addExprsAndUsedInvariants func exprsCreated used_invs fun_exprs;
-          invs <- unmatched_invs;
-          filtered_invariants<-filtered_invs@filtered_invariants;
+        let loc_definition = get_stmtLoc (List.hd func.sallstmts).skind
+        in 
+          Printf.printf "trying to match function %s in %s / %s \n" func.svar.vname loc.file loc_definition.file;
+          (*
+            we could use the liveset of the first statement, but those would be too many (they include local variables)
+            recent_liveset <- getLiveSet (List.hd func.sallstmts).sid;
+          *)
+          let ls = List.fold_left (fun a b -> VS.add b a) VS.empty func.sformals
+          in recent_liveset <- Some ls;
+          (* match invariants against this function-name at both locations*)
+          let (matched_invs1,unmatched_invs1) = filter_func invs loc.file func.svar.vname
+          and (matched_invs2,unmatched_invs2) = filter_func invs loc_definition.file func.svar.vname
+          in let (matched_invs,unmatched_invs) = ( matched_invs1@matched_invs2, unmatched_invs1@unmatched_invs2 )
+          (* translate matched invariants to expressions *)
+          in let (exprsCreated,used_invs,filtered_invs) = this#translate2exprs matched_invs loc
+          in (* update fields of this object *)
+            fun_exprs <- addExprsAndUsedInvariants func exprsCreated used_invs fun_exprs;
+            invs <- unmatched_invs;
+            filtered_invariants<-filtered_invs@filtered_invariants;
         DoChildren
       end
       (* visit statement *)
