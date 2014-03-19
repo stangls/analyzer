@@ -244,9 +244,11 @@ module M1 : Manipulator = struct
         prev_loc <- loc;
         computeLiveness func;
         (*
-          we could use the liveset of the first statement, but that would be too many (including local variabaes and such)
+          we could use the liveset of the first statement, but that would be too many (including local variables)
+          recent_liveset <- getLiveSet (List.hd func.sallstmts).sid;
         *)
-        recent_liveset <- getLiveSet (List.hd func.sallstmts).sid;
+        let ls = List.fold_left (fun a b -> VS.add b a) VS.empty func.sformals
+        in recent_liveset <- Some ls;
         (* match invariants against this function-name *)
         let (matched_invs,unmatched_invs) = filter_func invs loc.file func.svar.vname
         (* translate matched expressions to expressions *)
