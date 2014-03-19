@@ -1,31 +1,34 @@
 <ix version="1.0">
-  <tool>goblint</tool>
+  <tool>none / human</tool>
+
   <invariant>
     <location>
-      <file>04-multiLineAssert.c</file>
-      <line>5</line>
-      <column>1</column>
+      <file>06-functionEntriesVsLoopInvariant2.c</file>
+      <line>6</line>
+      <column>3</column>
+    </location>
+    <variable>
+      <name>i</name>
+      <interval>
+        <lower-bound>5</lower-bound>
+        <upper-bound>5</upper-bound>
+      </interval>
+    </variable>
+  </invariant>
+
+  <invariant>
+    <location>
+      <file>06-functionEntriesVsLoopInvariant2.c</file>
+      <line>6</line>
+      <column>3</column>
     </location>
     <variable>
       <name>i</name>
       <interval>
         <lower-bound>0</lower-bound>
-        <upper-bound>1</upper-bound>
+        <upper-bound>5</upper-bound>
       </interval>
     </variable>
   </invariant>
-  <invariant>
-    <location>
-      <file>04-multiLineAssert.c</file>
-      <line>10</line>
-      <column>1</column>
-    </location>
-    <variable>
-      <name>i</name>
-      <interval>
-        <lower-bound>0</lower-bound>
-        <upper-bound>0</upper-bound>
-      </interval>
-    </variable>
-  </invariant>
+
 </ix>
