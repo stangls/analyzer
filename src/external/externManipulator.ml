@@ -42,10 +42,9 @@ module M1 : Manipulator = struct
         create cil expressions from list of location-matched invariants at location loc with known liveset of variables.
         stores actual result in exprs and returns tuple of list of not translated (=filtered) invariants
       *)
-      method matched (invariants,unmatched_invariants) loc = begin
+      method translate2exprs invariants loc = begin
         match recent_liveset with
         | Some liveset -> begin
-          invs <- unmatched_invariants;
           (* translate a var_invariant to a cil_var *)
           let rec get_cil_var var =
             let cil_var = ref None
@@ -185,18 +184,13 @@ module M1 : Manipulator = struct
           in let (exprsCreated,used_invariants,filtered_invariants) = get_exprs invariants [] [] []
           in begin
             if (get_bool "dbg.verbose" && (List.length exprsCreated) > 0) then Printf.printf "exprs created : %s\n" ( Pretty.sprint ~width:80 ( Pretty.docList (d_exp ()) () exprsCreated ) );
-            let rec addExprsAndUI exprs usedInvariants exprsAgg = match exprs,usedInvariants with
-            | e::es,ui::uis -> addExprsAndUI es uis (((loc,e),[ui])::exprsAgg)
-            | [],[] -> exprsAgg
-            | es,uis -> Printf.printf "ERROR: Internal error. There are %d exprs and %d used invariants. Look at the source.\n" (List.length es) (List.length uis); exprsAgg
-            in exprs <- addExprsAndUI exprsCreated used_invariants exprs;
-            filtered_invariants
+            ( exprsCreated, used_invariants, filtered_invariants )
           end
         end
         (* no liveset? then we don't care about the filtered stuff *)
         | None -> begin
             Printf.printf "ERROR: Missing liveset information!\n";
-            []
+            ([],[],invariants)
           end
       end
       method tryMatch loc =
@@ -222,19 +216,33 @@ module M1 : Manipulator = struct
               end
             end
           end else begin
-            let filtered_invariants' = this#matched (filter_pos invs loc.file prev_loc.line max_int loc.line max_int) loc
-            in filtered_invariants<-filtered_invariants'@filtered_invariants
+            (* match invariants against this location *)
+            let (matched_invs,unmatched_invs) = filter_pos invs loc.file prev_loc.line max_int loc.line max_int
+            (* translate matched expressions to expressions *)
+            in let (exprsCreated,used_invs,filtered_invs) = this#translate2exprs matched_invs loc
+            in let rec addExprsAndUI exprs usedInvariants exprsAgg = match exprs,usedInvariants with
+              | e::es,ui::uis -> addExprsAndUI es uis (((loc,e),[ui])::exprsAgg)
+              | [],[] -> exprsAgg
+              | es,uis -> Printf.printf "ERROR: Internal error. There are %d exprs and %d used invariants. Look at the source.\n" (List.length es) (List.length uis); exprsAgg
+            in (* update fields of this object *)
+              exprs <- addExprsAndUI exprsCreated used_invs exprs;
+              invs <- unmatched_invs;
+              filtered_invariants<-filtered_invs@filtered_invariants
           end;
           (* store this location, so we try to match from this location on in the next run (if we stay in current file, see above) *)
           prev_loc <- loc
         end
-      (* visit global function: compute liveness of that function & set prev_loc *)
+      (*
+        visit global function:
+        compute liveness of that function & set prev_loc
+      *)
       method vfunc func = let loc=func.svar.vdecl in begin
         (* todo : function entry points f.svar.vname *)
         recent_liveset <- None;
         print_location loc ~name:"func";
         prev_loc <- loc;
         computeLiveness func;
+
         DoChildren
       end
       (* visit statement *)
