@@ -36,7 +36,7 @@ let assert_fun = ref None
 (* group the read invariants by var-name with Or? *)
 let group_invariants = true
 (* verify invariants *)
-let verify_invariants = true
+let verify_invariants = true (* todo *)
 
 (*
   initialize required things for external invariants.

@@ -9,6 +9,9 @@ module M1 : Manipulator = struct
   type t = invariant list
   type vi = var_invariant list
 
+  (* on function-entry use the (extended) live-set of the first statement or the formals & globals *)
+  let extended_function_entry_liveset = true
+
   let filter_pos invs f l1 c1 l2 c2 =
     let map ((is,ts):t*t) (inv:invariant) : t*t =
       match inv with
@@ -243,19 +246,20 @@ module M1 : Manipulator = struct
         print_location loc ~name:"func";
         prev_loc <- loc;
         computeLiveness func;
+        (* determine liveset *)
+        recent_liveset <- (
+          if extended_function_entry_liveset then
+            getLiveSet (List.hd func.sallstmts).sid
+          else
+            let ls = List.fold_left (fun a b -> VS.add b a) VS.empty func.sformals
+            in Some ls
+        );
         let loc_definition = get_stmtLoc (List.hd func.sallstmts).skind
         in 
-          Printf.printf "trying to match function %s in %s / %s \n" func.svar.vname loc.file loc_definition.file;
-          (*
-            we could use the liveset of the first statement, but those would be too many (they include local variables)
-            recent_liveset <- getLiveSet (List.hd func.sallstmts).sid;
-          *)
-          let ls = List.fold_left (fun a b -> VS.add b a) VS.empty func.sformals
-          in recent_liveset <- Some ls;
-          (* match invariants against this function-name at both locations*)
+          (* match invariants against this function-name at both locations *)
           let (matched_invs1,unmatched_invs1) = filter_func invs loc.file func.svar.vname
-          and (matched_invs2,unmatched_invs2) = filter_func invs loc_definition.file func.svar.vname
-          in let (matched_invs,unmatched_invs) = ( matched_invs1@matched_invs2, unmatched_invs1@unmatched_invs2 )
+          in let (matched_invs2,unmatched_invs) = filter_func unmatched_invs1 loc_definition.file func.svar.vname
+          in let matched_invs = matched_invs1@matched_invs2
           (* translate matched invariants to expressions *)
           in let (exprsCreated,used_invs,filtered_invs) = this#translate2exprs matched_invs loc
           in (* update fields of this object *)

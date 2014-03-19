@@ -275,8 +275,8 @@ struct
         (* recompute a given state [s] according to an invariant-list [expr_list] by applying a modified get-local-function *)
         in let rec change_state expr_list (s:S.D.t):S.D.t = match expr_list with
           | e::es  ->
-            if get_bool "dbg.debug" then
-              Printf.printf "assertion %s\n" (Pretty.sprint ~width:80 (d_exp () e));
+            if get_bool "dbg.verbose" then
+              Printf.printf "assertion injected: %s\n" (Pretty.sprint ~width:80 (d_exp () e));
             let new_s = tf_proc None assert_fun_exp [e] getl sidel getg sideg s
             in change_state es new_s
           | []    ->  s
