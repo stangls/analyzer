@@ -28,6 +28,12 @@ module M1 : Manipulator = struct
   let print_location loc ~name =
     () (*Printf.printf "Location: line %d , byte %d, file %s (%s)\n" loc.line loc.byte loc.file name*)
 
+  (* helper for visitor to merge expressions *)
+  let rec addExprsAndUsedInvariants fst exprs usedInvariants exprsAgg = match exprs,usedInvariants with
+          | e::es,ui::uis -> addExprsAndUsedInvariants fst es uis (((fst,e),[ui])::exprsAgg)
+          | [],[] -> exprsAgg
+          | es,uis -> Printf.printf "ERROR: Internal error. There are %d exprs and %d used invariants. Look at the source.\n" (List.length es) (List.length uis); exprsAgg
+
   class expr_converter_visitor (invariants:invariant list) file =
     object (this)
       inherit nopCilVisitor
@@ -220,12 +226,8 @@ module M1 : Manipulator = struct
             let (matched_invs,unmatched_invs) = filter_pos invs loc.file prev_loc.line max_int loc.line max_int
             (* translate matched expressions to expressions *)
             in let (exprsCreated,used_invs,filtered_invs) = this#translate2exprs matched_invs loc
-            in let rec addExprsAndUI exprs usedInvariants exprsAgg = match exprs,usedInvariants with
-              | e::es,ui::uis -> addExprsAndUI es uis (((loc,e),[ui])::exprsAgg)
-              | [],[] -> exprsAgg
-              | es,uis -> Printf.printf "ERROR: Internal error. There are %d exprs and %d used invariants. Look at the source.\n" (List.length es) (List.length uis); exprsAgg
             in (* update fields of this object *)
-              exprs <- addExprsAndUI exprsCreated used_invs exprs;
+              exprs <- addExprsAndUsedInvariants loc exprsCreated used_invs exprs;
               invs <- unmatched_invs;
               filtered_invariants<-filtered_invs@filtered_invariants
           end;
@@ -234,15 +236,25 @@ module M1 : Manipulator = struct
         end
       (*
         visit global function:
-        compute liveness of that function & set prev_loc
+        * compute liveness of that function & set prev_loc
+        * translate function-entry-invariants to expressions
       *)
       method vfunc func = let loc=func.svar.vdecl in begin
-        (* todo : function entry points f.svar.vname *)
-        recent_liveset <- None;
         print_location loc ~name:"func";
         prev_loc <- loc;
         computeLiveness func;
-
+        (*
+          we could use the liveset of the first statement, but that would be too many (including local variabaes and such)
+        *)
+        recent_liveset <- getLiveSet (List.hd func.sallstmts).sid;
+        (* match invariants against this function-name *)
+        let (matched_invs,unmatched_invs) = filter_func invs loc.file func.svar.vname
+        (* translate matched expressions to expressions *)
+        in let (exprsCreated,used_invs,filtered_invs) = this#translate2exprs matched_invs loc
+        in (* update fields of this object *)
+          fun_exprs <- addExprsAndUsedInvariants func exprsCreated used_invs fun_exprs;
+          invs <- unmatched_invs;
+          filtered_invariants<-filtered_invs@filtered_invariants;
         DoChildren
       end
       (* visit statement *)
