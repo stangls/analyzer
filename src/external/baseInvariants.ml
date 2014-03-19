@@ -44,8 +44,11 @@ module S : (InvariantsCreationHelper with type t = st ) = struct
   *)
   let store loc function_entry ((var_get,ctx):t) : unit =
     let handle_entry var vd_value =
-      let value = var_get ctx var
-      in BIC.add baseInvariants loc function_entry var value
+      match Basetype.Variables.class_name ( Basetype.Variables.classify var ) with (* ignore temp variables *)
+      | "Temp" -> ()
+      | _ ->
+        let value = var_get ctx var
+        in BIC.add baseInvariants loc function_entry var value
     and (cpa,_) = ctx.local
     in BaseDomain.CPA.iter (handle_entry) cpa
 

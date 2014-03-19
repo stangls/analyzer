@@ -176,16 +176,26 @@ let create_base_invariants var_get ctx function_entry =
     BI.store (creation_location ()) function_entry (var_get,ctx)
 type base_ctx = (BaseDomain.Dom.t,BaseDomain.VD.t) Analyses.ctx
 
-let write_invariants (_:unit) : unit =
+let write_invariants (file:Cil.file) : unit =
   if (String.length (get_string "ext_writeFile") != 0) then begin
     Printf.printf "Writing invariants...\n";
-    let invs =
-      BI.get_invariants ()
-    in let (numUndefined,invs) = Helper.filter_undefined_var_invariants invs
-    in  begin
-      (*List.iter ( fun x -> Printf.printf "Invariant created:\n%s\n" ( Pretty.sprint ~width:80 (d_invariant x) ) ) invs;*)
-      Printf.printf "%d invariants created.\n" (List.length invs);
-      Printf.printf "%d undefined invariants have been filtered out.\n" numUndefined;
+    let invs_orig = BI.get_invariants ()
+    in let (numUndefined,invs) = Helper.filter_undefined_var_invariants invs_orig
+    in let invs =
+      if verify_invariants then begin
+        Printf.printf "verifying invariants\n";
+        let ( exprInvs, fun_exprInvs ) = M.transform_to_cil invs file
+        in let ( _,verified_invs ) = List.split exprInvs
+        in let ( _,verified_fun_invs ) = List.split fun_exprInvs
+        in let ret = (List.concat verified_invs)@(List.concat verified_fun_invs)
+        in
+          Printf.printf "%d variable-invariants filtered out (unverified).\n" (Helper.num_var_invariants invs - Helper.num_var_invariants ret);
+          ret
+      end else
+        invs
+    in begin
+      Printf.printf "%d undefined variable-invariants have been filtered out (undefined)\n" numUndefined;
+      Printf.printf "%d variable-invariants created (from originally %d)\n" (Helper.num_var_invariants invs) (Helper.num_var_invariants invs_orig);
       IW.to_file (get_string "ext_writeFile") invs
     end
   end

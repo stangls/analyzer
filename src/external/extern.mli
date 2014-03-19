@@ -20,6 +20,6 @@ val intern_assert : Cil.varinfo
 type base_ctx = (BaseDomain.Dom.t,BaseDomain.VD.t) Analyses.ctx
 val create_base_invariants : ( base_ctx -> Cil.varinfo -> BaseDomain.VD.t ) -> base_ctx -> string option -> unit
 
-(* write out all created invariants *)
-val write_invariants : unit -> unit
+(* write out all created invariants, the cil file is required for the verification step. *)
+val write_invariants : Cil.file -> unit
 
