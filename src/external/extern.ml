@@ -21,8 +21,9 @@ module IW = IxFileInvariantsWriter
 
 exception InternalError
 
-(* storage for converted variants *)
+(* storage for converted invariants *)
 let loaded_invariants = ref ([]:cil_invariant list)
+(* storage for converted function-entry invariants *)
 let loaded_fun_invariants = ref ([]:cil_fun_invariant list)
 (* type of assertion-functions *)
 let assert_type = TFun(Cil.voidType,Some ["expression",Cil.intType,[]],false,[])
@@ -36,7 +37,7 @@ let assert_fun = ref None
 (* group the read invariants by var-name with Or? *)
 let group_invariants = true
 (* verify invariants *)
-let verify_invariants = true (* todo *)
+let verify_invariants = true
 
 (*
   initialize required things for external invariants.
