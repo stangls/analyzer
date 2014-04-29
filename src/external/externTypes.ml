@@ -117,10 +117,14 @@ sig
   type t = invariant list
   (*
     given a cil file, transform invariants to
-    * cil_invariants at locations (with their original invariants attached)
+    * cil_invariants at locations
     * cil_fun_invariants at function-entries (with their original invariants attached)
+    * invariants used for cil_invariants
+    * invariants used for cil_fun_invariants
   *)
-  val transform_to_cil : t -> file -> (cil_invariant*t) list * (cil_fun_invariant*t) list
+  val transform_to_cil : t -> file ->
+    ( Cil.location , cil_invariant list ) Hashtbl.t * ( Cil.location * t ) list *
+    ( string , cil_fun_invariant list ) Hashtbl.t * ( Cil.fundec * t ) list
   (*
     returns a tuple of
     * all invariants at a certain position in a file (1st parameter)
