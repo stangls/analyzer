@@ -22,9 +22,9 @@ module IW = IxFileInvariantsWriter
 exception InternalError
 
 (* storage for converted invariants *)
-let loaded_invariants = ref ([]:cil_invariant list)
+let loaded_invariants = ref (Hashtbl.create 0 : (Cil.location, ExternTypes.cil_invariant list) Hashtbl.t)
 (* storage for converted function-entry invariants *)
-let loaded_fun_invariants = ref ([]:cil_fun_invariant list)
+let loaded_fun_invariants = ref (Hashtbl.create 0 : (string, ExternTypes.cil_fun_invariant list) Hashtbl.t)
 (* type of assertion-functions *)
 let assert_type = TFun(Cil.voidType,Some ["expression",Cil.intType,[]],false,[])
 (* artificial assertion function only used internally *)
@@ -49,8 +49,11 @@ let verify_invariants = true
     ext_readFile : string   (additional) filename to read from with the configured readers (see above)
 *)
 let init merged_AST cFileNames =
-  let aggregate_cil_invariants inv_getter (agg,fun_agg) get_param : cil_invariant list * cil_fun_invariant list = 
-    match inv_getter get_param with
+  let aggregate_cil_invariants inv_getter (agg,fun_agg) get_param : (Cil.location, ExternTypes.cil_invariant list) Hashtbl.t * (string, ExternTypes.cil_fun_invariant list) Hashtbl.t =
+    let merge_ht ht agg =
+      let merge k v = Hashtbl.add agg k v
+      in Hashtbl.iter merge ht
+    in match inv_getter get_param with
       | Some invariants ->
         if get_bool "dbg.verbose" then begin
           Printf.printf "Read %d external invariants from %s.\n" ( List.length invariants ) get_param;
@@ -71,18 +74,19 @@ let init merged_AST cFileNames =
             end
           else
             invariants
-        in let (invs,fun_invs) = M.transform_to_cil invariants merged_AST
-        in let (cil_invariants,transformed_invariants) = List.split invs
-           and (cil_fun_invariants,transformed_fun_invariants) = List.split fun_invs
+        in let (cil_invariants,transformed_invariants,cil_fun_invariants,transformed_fun_invariants) = M.transform_to_cil invariants merged_AST
         in
           if get_bool "dbg.verbose" then begin
-            let transformed_invariants = List.concat transformed_invariants
-            and transformed_fun_invariants = List.concat transformed_fun_invariants
+            let c acc ( loc, invs ) = invs@acc
+            in let transformed_invariants = List.fold_left c [] transformed_invariants
+               and transformed_fun_invariants = List.fold_left c [] transformed_fun_invariants
             in let num_transformed = Helper.num_var_invariants ( transformed_invariants ) + Helper.num_var_invariants ( transformed_fun_invariants )
                and num_v_transformed = Helper.num_var_values ( transformed_invariants ) + Helper.num_var_values ( transformed_fun_invariants )
-            in Printf.printf "From the above, %d assert-expressions could be developed from %d invariants ( %d values ).\n" ( List.length cil_invariants ) num_transformed num_v_transformed;
+            in Printf.printf "From the above, %d assert-expressions could be created from %d invariants ( %d values ).\n" ( Hashtbl.length cil_invariants ) num_transformed num_v_transformed;
           end;
-          (cil_invariants @ agg, cil_fun_invariants @ fun_agg)
+          merge_ht cil_invariants agg;
+          merge_ht cil_fun_invariants fun_agg;
+          (agg, fun_agg)
       | None            -> (agg,fun_agg)
   in let create_exp var = Cil.Lval(Cil.Var var,Cil.NoOffset)
   in let filter_assert = function
@@ -91,7 +95,7 @@ let init merged_AST cFileNames =
     | _ -> false
   in begin
     if get_bool "ext_read" then
-      let (invs,fun_invs) = List.fold_left (aggregate_cil_invariants IR.of_c_file) (aggregate_cil_invariants IR.of_file ([],[]) (get_string "ext_readFile")) cFileNames
+      let (invs,fun_invs) = List.fold_left (aggregate_cil_invariants IR.of_c_file) (aggregate_cil_invariants IR.of_file (Hashtbl.create 0,Hashtbl.create 0) (get_string "ext_readFile")) cFileNames
       in
         loaded_invariants := invs;
         loaded_fun_invariants := fun_invs;
@@ -118,17 +122,21 @@ let get_loc_inv_expr (loc_from:Cil.location) (loc:Cil.location) : Cil.exp list =
   end else begin
     if get_bool "dbg.verbose" then
       Printf.printf "getting invariant expressions at %s\n" ( Pretty.sprint ~width:80 (d_loc () loc) );
-    let filter_fun (loc',_:cil_invariant) = ( loc.line=loc'.line && (String.compare loc.file loc'.file = 0) )
-    in let get_expr (_,expr) = expr
-    in List.map get_expr (List.filter filter_fun !loaded_invariants)
+    let get_expr (_,expr) = expr
+    in
+      try
+        List.map get_expr (Hashtbl.find !loaded_invariants loc)
+      with Not_found -> []
   end
 
 let get_func_inv_expr (function_name:string) : Cil.exp list =
   if get_bool "dbg.verbose" then
     Printf.printf "getting invariant expressions for function entry %s\n" function_name;
-  let filter_fun (fdecl,_) = (String.compare fdecl.svar.vname function_name = 0)
-  in let get_expr (_,expr) = expr
-  in List.map get_expr (List.filter filter_fun !loaded_fun_invariants)
+  let get_expr (_,expr) = expr
+  in
+    try
+      List.map get_expr (Hashtbl.find !loaded_fun_invariants function_name)
+    with Not_found -> []
   
 
 (*
@@ -185,10 +193,9 @@ let write_invariants (file:Cil.file) : unit =
     in let invs =
       if verify_invariants then begin
         Printf.printf "verifying invariants\n";
-        let ( exprInvs, fun_exprInvs ) = M.transform_to_cil invs file
-        in let ( _,verified_invs ) = List.split exprInvs
-        in let ( _,verified_fun_invs ) = List.split fun_exprInvs
-        in let ret = (List.concat verified_invs)@(List.concat verified_fun_invs)
+        let ( _ , verified_invs, _ , verified_fun_invs ) = M.transform_to_cil invs file
+        and c acc ( loc, invs ) = invs@acc
+        in let ret = (List.fold_left c [] verified_invs)@(List.fold_left c [] verified_fun_invs)
         in
           Printf.printf "%d variable-invariants filtered out (unverified).\n" (Helper.num_var_invariants invs - Helper.num_var_invariants ret);
           ret

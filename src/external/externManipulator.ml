@@ -310,8 +310,37 @@ module M1 : Manipulator = struct
           Printf.printf "Not translated : \n%s\n" ( Pretty.sprint ~width:80 ( Pretty.docList d_invariant () (visitor#get_filtered_invs) ) );
         end
       end;
-      (* return result *)
-      visitor#result
+      (* return result as hashtable from locations to actual values*)
+      let (cil_invariants_invs,cil_fun_invariants_invs) = visitor#result
+      in let (cil_invariants,_) = List.split cil_invariants_invs
+         and (cil_fun_invariants,_) = List.split cil_fun_invariants_invs
+      in let cil_invs = Hashtbl.create (List.length cil_invariants)
+      and cil_fun_invs = Hashtbl.create (List.length cil_fun_invariants)
+      and add_loc h ( (loc,_) as content ) =
+        let newVal =
+          try
+            let oldVal = Hashtbl.find h loc
+            in content :: oldVal
+          with Not_found -> [content]
+        in Hashtbl.replace h loc newVal
+      and add_fundec h ( (fundec,_) as content ) =
+        let fname = fundec.svar.vname
+        in let newVal =
+          try
+            let oldVal = Hashtbl.find h fname
+            in content :: oldVal
+          with Not_found -> [content]
+        in Hashtbl.replace h fname newVal
+      and t acc ( (loc,_), invs ) = (loc,invs)::acc
+      in begin
+        List.iter (add_loc cil_invs) cil_invariants;
+        List.iter (add_fundec cil_fun_invs) cil_fun_invariants;
+        ( cil_invs
+        , List.fold_left t [] cil_invariants_invs
+        , cil_fun_invs
+        , List.fold_left t [] cil_fun_invariants_invs
+        )
+      end
     end
 
   let group_var_invariant_by_variables (vis:var_invariant list) : var_invariant list =
